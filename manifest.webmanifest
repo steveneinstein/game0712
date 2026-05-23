@@ -1,0 +1,17 @@
+{
+  "name": "Lucky 7 Cards",
+  "short_name": "Lucky 7",
+  "description": "A fast dice-and-card betting game built around Below 7, Exact 7, and Above 7 outcomes.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#09111f",
+  "theme_color": "#09111f",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

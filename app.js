@@ -14,7 +14,7 @@ const lanes = [
     label: "Sum is 7",
     symbol: "= 7",
     color: "#13a85b",
-    payoutMultiplier: 2,
+    payoutMultiplier: 3,
     test: (sum) => sum === 7
   },
   {

@@ -1,4 +1,4 @@
-const lanes = [
+let lanes = [
   {
     id: "below",
     title: "Below 7",
@@ -14,7 +14,7 @@ const lanes = [
     label: "Sum is 7",
     symbol: "= 7",
     color: "#13a85b",
-    payoutMultiplier: 2,
+    payoutMultiplier: 3,
     test: (sum) => sum === 7
   },
   {
@@ -28,7 +28,7 @@ const lanes = [
   }
 ];
 
-const gameSettings = {
+let gameSettings = {
   betTimeSeconds: 15,
   maxPlayers: 10,
   maxPurchasePerPlayer: 1000,
@@ -69,18 +69,39 @@ const state = {
   roundResolved: false,
   bettingOpen: false,
   betSecondsLeft: gameSettings.betTimeSeconds,
+  betEndsAt: null,
   betTimerId: null,
   players: createPlayers(),
   history: []
 };
 
-render();
+let sessionHydrated = false;
+let persistTimerId = null;
+
+initGame();
 registerServiceWorker();
 
 startBettingBtn.addEventListener("click", startBetting);
 rollBtn.addEventListener("click", rollDice);
 nextRoundBtn.addEventListener("click", startNextRound);
 resetBtn.addEventListener("click", resetGame);
+window.addEventListener("pagehide", persistSessionOnPageHide);
+
+async function initGame() {
+  render();
+  await loadGameConfig();
+  await loadGameSession();
+  render();
+
+  if (state.bettingOpen && state.phase === "betting" && !state.roundResolved) {
+    syncBetTimerFromDeadline();
+    if (state.betSecondsLeft === 0) {
+      rollDice();
+    } else {
+      startBetTimer();
+    }
+  }
+}
 
 function createPlayers() {
   return Array.from({ length: gameSettings.maxPlayers }, (_, index) => ({
@@ -108,7 +129,7 @@ function render() {
   tablePotEl.textContent = formatRupees(getTablePot());
   roundNumberEl.textContent = state.round;
   timerLabel.textContent = state.phase === "staging" ? "Stage" : "Bet time";
-  betTimerEl.textContent = state.phase === "staging" ? "Ready" : `${state.betSecondsLeft}s`;
+  betTimerEl.textContent = state.phase === "staging" ? "Ready" : `${getDisplayedBetSeconds()}s`;
   activePlayerName.textContent = activePlayer.name;
   activePlayerWallet.textContent = `Carried balance: ${formatRupees(activePlayer.walletBalance)}`;
   playerLimitText.textContent = `Max purchase per player: ${formatRupees(gameSettings.maxPurchasePerPlayer)}`;
@@ -119,6 +140,7 @@ function render() {
   renderHand();
   renderHistory();
   updateControls();
+  scheduleSessionPersist();
 }
 
 function renderLanes() {
@@ -323,6 +345,7 @@ function buyCard(value) {
   roundResult.textContent = `${activePlayer.name} added a ${formatRupees(value)} card.`;
   roundDetail.textContent = `${activePlayer.name} has ${formatRupees(activePlayer.walletBalance)} remaining to convert and can buy ${formatRupees(gameSettings.maxPurchasePerPlayer - activePlayer.purchasedTotal)} more.`;
   render();
+  saveGameSessionNow();
 }
 
 function startBetting() {
@@ -333,9 +356,11 @@ function startBetting() {
   state.phase = "betting";
   state.bettingOpen = true;
   state.betSecondsLeft = gameSettings.betTimeSeconds;
+  state.betEndsAt = Date.now() + gameSettings.betTimeSeconds * 1000;
   roundResult.textContent = "Betting open";
   roundDetail.textContent = `Players can place bought cards now. Dice roll when the ${gameSettings.betTimeSeconds}-second timer ends.`;
   render();
+  saveGameSessionNow();
   startBetTimer();
 }
 
@@ -354,9 +379,10 @@ function placeSelectedCard(laneId) {
   roundResult.textContent = `${activePlayer.name} placed ${formatRupees(card.value)}.`;
   roundDetail.textContent = `${formatRupees(getTablePot())} is now on the table. Dice roll when the timer ends, or you can roll now.`;
   render();
+  saveGameSessionNow();
 }
 
-function rollDice() {
+async function rollDice() {
   if (!state.bettingOpen || state.phase !== "betting" || state.rolling || state.roundResolved) {
     return;
   }
@@ -366,11 +392,27 @@ function rollDice() {
   state.phase = "rolling";
   state.selectedCardId = null;
   state.betSecondsLeft = 0;
+  state.betEndsAt = null;
   state.rolling = true;
   rollBtn.disabled = true;
   dicePair.classList.add("is-rolling");
   roundResult.textContent = "Rolling...";
   roundDetail.textContent = "The winning lane is decided by the total of both dice.";
+
+  let roll;
+  try {
+    roll = await fetchRoll();
+  } catch (error) {
+    state.rolling = false;
+    state.phase = "betting";
+    state.bettingOpen = true;
+    state.betEndsAt = Date.now() + Math.max(state.betSecondsLeft, 1) * 1000;
+    rollBtn.disabled = false;
+    roundResult.textContent = "Roll failed";
+    roundDetail.textContent = "The backend could not roll the dice. Check the server and try again.";
+    render();
+    return;
+  }
 
   const ticker = window.setInterval(() => {
     dieOne.textContent = randomDie();
@@ -379,9 +421,8 @@ function rollDice() {
 
   window.setTimeout(() => {
     window.clearInterval(ticker);
-    const dice = [randomDie(), randomDie()];
-    const sum = dice[0] + dice[1];
-    const winningLane = lanes.find((lane) => lane.test(sum));
+    const { dice, sum, winningLaneId } = roll;
+    const winningLane = lanes.find((lane) => lane.id === winningLaneId) || lanes.find((lane) => lane.test(sum));
 
     dieOne.textContent = dice[0];
     dieTwo.textContent = dice[1];
@@ -410,6 +451,7 @@ function resolveRound(dice, sum, winningLane) {
   state.roundResolved = true;
   state.phase = "resolved";
   state.winningLaneId = winningLane.id;
+  state.betEndsAt = null;
   roundResult.textContent = `${dice[0]} + ${dice[1]} = ${sum}. ${winningLane.title} wins.`;
   roundDetail.textContent = winners.length
     ? `${winnerText} ${winners.map(({ player, bet }) => `${player.name} +${formatRupees(bet * winningLane.payoutMultiplier)}`).join(", ")}.`
@@ -423,6 +465,7 @@ function resolveRound(dice, sum, winningLane) {
   });
 
   render();
+  saveGameSessionNow();
   markWinningLane(winningLane.id);
 }
 
@@ -445,6 +488,7 @@ function startNextRound() {
   state.phase = "staging";
   state.bettingOpen = false;
   state.betSecondsLeft = gameSettings.betTimeSeconds;
+  state.betEndsAt = null;
   state.players.forEach((player) => {
     const availableTotal = getPlayerTotalMoney(player);
 
@@ -458,6 +502,7 @@ function startNextRound() {
   roundResult.textContent = "Staging: buy cards";
   roundDetail.textContent = `Each player can buy up to ${formatRupees(gameSettings.maxPurchasePerPlayer)}. The owner starts the betting timer when ready.`;
   render();
+  saveGameSessionNow();
 }
 
 function resetGame() {
@@ -478,6 +523,7 @@ function resetGame() {
   state.roundResolved = false;
   state.bettingOpen = false;
   state.betSecondsLeft = gameSettings.betTimeSeconds;
+  state.betEndsAt = null;
   state.players = createPlayers();
   state.players.forEach((player, index) => {
     const savedPlayer = savedPlayers[index];
@@ -497,6 +543,7 @@ function resetGame() {
   roundResult.textContent = "Staging: buy cards";
   roundDetail.textContent = `Each player can buy up to ${formatRupees(gameSettings.maxPurchasePerPlayer)}. The owner starts the betting timer when ready.`;
   render();
+  saveGameSessionNow();
 }
 
 function startBetTimer() {
@@ -507,13 +554,32 @@ function startBetTimer() {
       return;
     }
 
-    state.betSecondsLeft = Math.max(0, state.betSecondsLeft - 1);
+    syncBetTimerFromDeadline();
     betTimerEl.textContent = `${state.betSecondsLeft}s`;
 
     if (state.betSecondsLeft === 0) {
       rollDice();
+    } else {
+      scheduleSessionPersist();
     }
   }, 1000);
+}
+
+function syncBetTimerFromDeadline() {
+  if (!state.betEndsAt) {
+    return state.betSecondsLeft;
+  }
+
+  state.betSecondsLeft = Math.max(0, Math.ceil((state.betEndsAt - Date.now()) / 1000));
+  return state.betSecondsLeft;
+}
+
+function getDisplayedBetSeconds() {
+  if (state.bettingOpen && state.phase === "betting") {
+    return syncBetTimerFromDeadline();
+  }
+
+  return state.betSecondsLeft;
 }
 
 function stopBetTimer() {
@@ -562,6 +628,159 @@ function getPlayerTotalMoney(player) {
 
 function randomDie() {
   return Math.floor(Math.random() * 6) + 1;
+}
+
+async function fetchRoll() {
+  const response = await fetch("/api/roll", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error("Roll request failed");
+  }
+
+  return response.json();
+}
+
+async function loadGameConfig() {
+  try {
+    const response = await fetch("/api/game/config");
+
+    if (!response.ok) {
+      throw new Error("Config request failed");
+    }
+
+    const config = await response.json();
+    gameSettings = { ...gameSettings, ...config.settings };
+    lanes = config.lanes.map((lane) => ({
+      ...lane,
+      test: (sum) => sum >= lane.minSum && sum <= lane.maxSum
+    }));
+  } catch (error) {
+    // The local defaults keep the game playable if the API is unavailable.
+  }
+}
+
+async function loadGameSession() {
+  try {
+    const response = await fetch("/api/game/session", {
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      throw new Error("Session request failed");
+    }
+
+    const session = await response.json();
+    applyGameSession(session);
+    sessionHydrated = true;
+  } catch (error) {
+    sessionHydrated = true;
+    scheduleSessionPersist();
+  }
+}
+
+function applyGameSession(session) {
+  if (!session || !session.state) {
+    return;
+  }
+
+  stopBetTimer();
+  Object.assign(state, {
+    ...session.state,
+    rolling: false,
+    betTimerId: null
+  });
+
+  syncBetTimerFromDeadline();
+
+  if (!Array.isArray(state.players) || state.players.length === 0) {
+    state.players = createPlayers();
+  }
+
+  if (!Array.isArray(state.history)) {
+    state.history = [];
+  }
+
+  dieOne.textContent = session.ui?.dieOne || "?";
+  dieTwo.textContent = session.ui?.dieTwo || "?";
+  roundResult.textContent = session.ui?.roundResult || "Staging: buy cards";
+  roundDetail.textContent = session.ui?.roundDetail || "Players can buy digital cards now. The owner starts the betting timer when the table is ready.";
+}
+
+function scheduleSessionPersist() {
+  if (!sessionHydrated) {
+    return;
+  }
+
+  window.clearTimeout(persistTimerId);
+  persistTimerId = window.setTimeout(saveGameSession, 150);
+}
+
+function saveGameSessionNow() {
+  window.clearTimeout(persistTimerId);
+  return saveGameSession();
+}
+
+async function saveGameSession() {
+  try {
+    await fetch("/api/game/session", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(snapshotGameSession())
+    });
+  } catch (error) {
+    // The current browser state remains playable if persistence is unavailable.
+  }
+}
+
+function persistSessionOnPageHide() {
+  if (!sessionHydrated) {
+    return;
+  }
+
+  window.clearTimeout(persistTimerId);
+  const payload = JSON.stringify(snapshotGameSession());
+
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon("/api/game/session", new Blob([payload], { type: "application/json" }));
+    return;
+  }
+
+  fetch("/api/game/session", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: payload,
+    keepalive: true
+  }).catch(() => {});
+}
+
+function snapshotGameSession() {
+  const { betTimerId, ...persistedState } = state;
+
+  if (persistedState.bettingOpen && persistedState.phase === "betting") {
+    persistedState.betSecondsLeft = syncBetTimerFromDeadline();
+  }
+
+  return {
+    state: {
+      ...persistedState,
+      rolling: false
+    },
+    ui: {
+      dieOne: dieOne.textContent,
+      dieTwo: dieTwo.textContent,
+      roundResult: roundResult.textContent,
+      roundDetail: roundDetail.textContent
+    }
+  };
 }
 
 function formatRupees(value) {

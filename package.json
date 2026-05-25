@@ -1,0 +1,21 @@
+{
+  "name": "lucky-7-cards",
+  "version": "1.0.0",
+  "description": "Lucky 7 Cards dice game served by a Node.js Express backend.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "dice",
+    "cards",
+    "express",
+    "game"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}

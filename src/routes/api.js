@@ -4,6 +4,11 @@ const { getSession, saveSession, resetSession } = require("../store/sessionStore
 
 const router = express.Router();
 
+router.use((req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
+
 router.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
@@ -17,6 +22,10 @@ router.get("/game/session", (req, res) => {
 });
 
 router.put("/game/session", (req, res) => {
+  res.json(saveSession(req.body));
+});
+
+router.post("/game/session", (req, res) => {
   res.json(saveSession(req.body));
 });
 

@@ -15,6 +15,7 @@ A Lucky 7 dice-and-card game served by a Node.js Express backend.
 - `GET /api/game/config` - game lanes and settings.
 - `GET /api/game/session` - current in-memory game session.
 - `PUT /api/game/session` - save the current game session.
+- `POST /api/game/session` - save the current game session during page unload.
 - `DELETE /api/game/session` - reset the in-memory game session.
 - `POST /api/roll` - rolls two dice and returns the winning lane.
 

@@ -90,6 +90,7 @@ function createInitialSession() {
       roundResolved: false,
       bettingOpen: false,
       betSecondsLeft: settings.betTimeSeconds,
+      betEndsAt: null,
       players: createPlayers(),
       history: []
     },

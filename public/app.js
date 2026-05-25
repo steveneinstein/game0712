@@ -1,4 +1,4 @@
-const lanes = [
+let lanes = [
   {
     id: "below",
     title: "Below 7",
@@ -28,7 +28,7 @@ const lanes = [
   }
 ];
 
-const gameSettings = {
+let gameSettings = {
   betTimeSeconds: 15,
   maxPlayers: 10,
   maxPurchasePerPlayer: 1000,
@@ -75,6 +75,7 @@ const state = {
 };
 
 render();
+loadGameConfig();
 registerServiceWorker();
 
 startBettingBtn.addEventListener("click", startBetting);
@@ -356,7 +357,7 @@ function placeSelectedCard(laneId) {
   render();
 }
 
-function rollDice() {
+async function rollDice() {
   if (!state.bettingOpen || state.phase !== "betting" || state.rolling || state.roundResolved) {
     return;
   }
@@ -372,6 +373,20 @@ function rollDice() {
   roundResult.textContent = "Rolling...";
   roundDetail.textContent = "The winning lane is decided by the total of both dice.";
 
+  let roll;
+  try {
+    roll = await fetchRoll();
+  } catch (error) {
+    state.rolling = false;
+    state.phase = "betting";
+    state.bettingOpen = true;
+    rollBtn.disabled = false;
+    roundResult.textContent = "Roll failed";
+    roundDetail.textContent = "The backend could not roll the dice. Check the server and try again.";
+    render();
+    return;
+  }
+
   const ticker = window.setInterval(() => {
     dieOne.textContent = randomDie();
     dieTwo.textContent = randomDie();
@@ -379,9 +394,8 @@ function rollDice() {
 
   window.setTimeout(() => {
     window.clearInterval(ticker);
-    const dice = [randomDie(), randomDie()];
-    const sum = dice[0] + dice[1];
-    const winningLane = lanes.find((lane) => lane.test(sum));
+    const { dice, sum, winningLaneId } = roll;
+    const winningLane = lanes.find((lane) => lane.id === winningLaneId) || lanes.find((lane) => lane.test(sum));
 
     dieOne.textContent = dice[0];
     dieTwo.textContent = dice[1];
@@ -562,6 +576,41 @@ function getPlayerTotalMoney(player) {
 
 function randomDie() {
   return Math.floor(Math.random() * 6) + 1;
+}
+
+async function fetchRoll() {
+  const response = await fetch("/api/roll", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error("Roll request failed");
+  }
+
+  return response.json();
+}
+
+async function loadGameConfig() {
+  try {
+    const response = await fetch("/api/game/config");
+
+    if (!response.ok) {
+      throw new Error("Config request failed");
+    }
+
+    const config = await response.json();
+    gameSettings = { ...gameSettings, ...config.settings };
+    lanes = config.lanes.map((lane) => ({
+      ...lane,
+      test: (sum) => sum >= lane.minSum && sum <= lane.maxSum
+    }));
+    render();
+  } catch (error) {
+    // The local defaults keep the game playable if the API is unavailable.
+  }
 }
 
 function formatRupees(value) {

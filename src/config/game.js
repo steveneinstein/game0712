@@ -58,8 +58,54 @@ function rollDice() {
   };
 }
 
+function createPlayers() {
+  return Array.from({ length: settings.maxPlayers }, (_, index) => ({
+    id: index + 1,
+    name: `Player ${index + 1}`,
+    winnings: 0,
+    purchasedTotal: 0,
+    walletBalance: 0,
+    hand: [],
+    bets: createEmptyBets()
+  }));
+}
+
+function createEmptyBets() {
+  return lanes.reduce((bets, lane) => {
+    bets[lane.id] = [];
+    return bets;
+  }, {});
+}
+
+function createInitialSession() {
+  return {
+    state: {
+      round: 1,
+      activePlayerId: 1,
+      selectedCardId: null,
+      selectedLane: null,
+      winningLaneId: null,
+      phase: "staging",
+      rolling: false,
+      roundResolved: false,
+      bettingOpen: false,
+      betSecondsLeft: settings.betTimeSeconds,
+      players: createPlayers(),
+      history: []
+    },
+    ui: {
+      dieOne: "?",
+      dieTwo: "?",
+      roundResult: "Staging: buy cards",
+      roundDetail: "Players can buy digital cards now. The owner starts the betting timer when the table is ready."
+    },
+    updatedAt: new Date().toISOString()
+  };
+}
+
 module.exports = {
   lanes,
   settings,
-  rollDice
+  rollDice,
+  createInitialSession
 };

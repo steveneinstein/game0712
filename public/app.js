@@ -74,14 +74,27 @@ const state = {
   history: []
 };
 
-render();
-loadGameConfig();
+let sessionHydrated = false;
+let persistTimerId = null;
+
+initGame();
 registerServiceWorker();
 
 startBettingBtn.addEventListener("click", startBetting);
 rollBtn.addEventListener("click", rollDice);
 nextRoundBtn.addEventListener("click", startNextRound);
 resetBtn.addEventListener("click", resetGame);
+
+async function initGame() {
+  render();
+  await loadGameConfig();
+  await loadGameSession();
+  render();
+
+  if (state.bettingOpen && state.phase === "betting" && !state.roundResolved) {
+    startBetTimer();
+  }
+}
 
 function createPlayers() {
   return Array.from({ length: gameSettings.maxPlayers }, (_, index) => ({
@@ -120,6 +133,7 @@ function render() {
   renderHand();
   renderHistory();
   updateControls();
+  scheduleSessionPersist();
 }
 
 function renderLanes() {
@@ -526,6 +540,8 @@ function startBetTimer() {
 
     if (state.betSecondsLeft === 0) {
       rollDice();
+    } else {
+      scheduleSessionPersist();
     }
   }, 1000);
 }
@@ -607,10 +623,92 @@ async function loadGameConfig() {
       ...lane,
       test: (sum) => sum >= lane.minSum && sum <= lane.maxSum
     }));
-    render();
   } catch (error) {
     // The local defaults keep the game playable if the API is unavailable.
   }
+}
+
+async function loadGameSession() {
+  try {
+    const response = await fetch("/api/game/session");
+
+    if (!response.ok) {
+      throw new Error("Session request failed");
+    }
+
+    const session = await response.json();
+    applyGameSession(session);
+    sessionHydrated = true;
+  } catch (error) {
+    sessionHydrated = true;
+    scheduleSessionPersist();
+  }
+}
+
+function applyGameSession(session) {
+  if (!session || !session.state) {
+    return;
+  }
+
+  stopBetTimer();
+  Object.assign(state, {
+    ...session.state,
+    rolling: false,
+    betTimerId: null
+  });
+
+  if (!Array.isArray(state.players) || state.players.length === 0) {
+    state.players = createPlayers();
+  }
+
+  if (!Array.isArray(state.history)) {
+    state.history = [];
+  }
+
+  dieOne.textContent = session.ui?.dieOne || "?";
+  dieTwo.textContent = session.ui?.dieTwo || "?";
+  roundResult.textContent = session.ui?.roundResult || "Staging: buy cards";
+  roundDetail.textContent = session.ui?.roundDetail || "Players can buy digital cards now. The owner starts the betting timer when the table is ready.";
+}
+
+function scheduleSessionPersist() {
+  if (!sessionHydrated) {
+    return;
+  }
+
+  window.clearTimeout(persistTimerId);
+  persistTimerId = window.setTimeout(saveGameSession, 150);
+}
+
+async function saveGameSession() {
+  try {
+    await fetch("/api/game/session", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(snapshotGameSession())
+    });
+  } catch (error) {
+    // The current browser state remains playable if persistence is unavailable.
+  }
+}
+
+function snapshotGameSession() {
+  const { betTimerId, ...persistedState } = state;
+
+  return {
+    state: {
+      ...persistedState,
+      rolling: false
+    },
+    ui: {
+      dieOne: dieOne.textContent,
+      dieTwo: dieTwo.textContent,
+      roundResult: roundResult.textContent,
+      roundDetail: roundDetail.textContent
+    }
+  };
 }
 
 function formatRupees(value) {

@@ -13,7 +13,12 @@ A Lucky 7 dice-and-card game served by a Node.js Express backend.
 
 - `GET /api/health` - server health check.
 - `GET /api/game/config` - game lanes and settings.
+- `GET /api/game/session` - current in-memory game session.
+- `PUT /api/game/session` - save the current game session.
+- `DELETE /api/game/session` - reset the in-memory game session.
 - `POST /api/roll` - rolls two dice and returns the winning lane.
+
+Session persistence is held in Express memory, so refreshes keep the table state while the server process is running. Restarting the server starts a fresh session.
 
 ## Run Locally
 

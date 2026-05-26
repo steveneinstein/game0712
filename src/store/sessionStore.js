@@ -24,6 +24,21 @@ function saveSession(nextSession) {
   return getSession();
 }
 
+function updateSession(updater) {
+  const nextSession = updater(clone(session));
+  session = {
+    ...nextSession,
+    updatedAt: new Date().toISOString()
+  };
+
+  if (session.state) {
+    session.state.rolling = false;
+    session.state.betTimerId = null;
+  }
+
+  return getSession();
+}
+
 function resetSession() {
   session = createInitialSession();
   return getSession();
@@ -32,5 +47,6 @@ function resetSession() {
 module.exports = {
   getSession,
   saveSession,
+  updateSession,
   resetSession
 };

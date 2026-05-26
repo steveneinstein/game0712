@@ -120,6 +120,46 @@ h2 {
   font-size: 2rem;
 }
 
+.role-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 14px 0;
+}
+
+.role-nav a {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 211, 106, 0.24);
+  border-radius: 8px;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.22);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.role-nav a.is-active,
+.role-nav a:hover {
+  border-color: var(--gold);
+  color: #101010;
+  background: var(--gold);
+}
+
+.player-links {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.controls.is-admin-only {
+  display: none;
+}
+
 .table-top {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

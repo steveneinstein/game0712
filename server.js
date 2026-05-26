@@ -15,6 +15,5 @@ app.use((req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => { 
-test
   console.log(`Lucky 7 Cards server running`);
 });

@@ -33,3 +33,10 @@ npm run dev
 ```
 
 Open `http://localhost:3000`.
+
+## Pages
+
+- `/admin` - admin table controls for starting betting, rolling dice, next round, and reset.
+- `/player/1` through `/player/10` - individual player pages for buying cards and placing bets.
+
+Admin-only action routes can be protected by setting `ADMIN_KEY` in the server environment. If `ADMIN_KEY` is not set, admin actions are open for local testing.

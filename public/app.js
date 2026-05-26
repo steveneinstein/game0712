@@ -57,6 +57,13 @@ const activePlayerName = document.querySelector("#activePlayerName");
 const activePlayerWallet = document.querySelector("#activePlayerWallet");
 const playerLimitText = document.querySelector("#playerLimitText");
 const historyList = document.querySelector("#historyList");
+const pageEyebrow = document.querySelector("#pageEyebrow");
+const pageTitle = document.querySelector("#pageTitle");
+const pageIntro = document.querySelector("#pageIntro");
+const playerPanelTitle = document.querySelector("#playerPanelTitle");
+const adminLink = document.querySelector("#adminLink");
+const playerLinks = document.querySelector("#playerLinks");
+const controlsPanel = document.querySelector(".controls");
 
 const state = {
   round: 1,
@@ -75,6 +82,7 @@ const state = {
   history: []
 };
 
+const viewContext = getViewContext();
 let sessionHydrated = false;
 
 initGame();
@@ -85,7 +93,53 @@ rollBtn.addEventListener("click", rollDice);
 nextRoundBtn.addEventListener("click", startNextRound);
 resetBtn.addEventListener("click", resetGame);
 
+function getViewContext() {
+  const playerMatch = window.location.pathname.match(/^\/player\/(\d+)$/);
+  const playerId = playerMatch ? Number(playerMatch[1]) : null;
+
+  if (playerId && playerId >= 1 && playerId <= gameSettings.maxPlayers) {
+    return {
+      role: "player",
+      playerId
+    };
+  }
+
+  return {
+    role: "admin",
+    playerId: null
+  };
+}
+
+function configurePageChrome() {
+  const isAdmin = viewContext.role === "admin";
+
+  pageEyebrow.textContent = isAdmin ? "Admin table" : "Player table";
+  pageTitle.textContent = isAdmin ? "Lucky 7 Admin" : `Player ${viewContext.playerId}`;
+  pageIntro.textContent = isAdmin
+    ? "Control the round, monitor all players, roll dice, and move the table forward."
+    : "Buy your cards, choose one during betting, and place it on Below 7, Exact 7, or Above 7.";
+  playerPanelTitle.textContent = isAdmin
+    ? "Monitor players and manage table flow"
+    : "Buy cards, then place your selected card when betting opens";
+  controlsPanel.classList.toggle("is-admin-only", !isAdmin);
+  adminLink.classList.toggle("is-active", isAdmin);
+  renderPlayerLinks();
+}
+
+function renderPlayerLinks() {
+  playerLinks.innerHTML = "";
+
+  Array.from({ length: gameSettings.maxPlayers }, (_, index) => index + 1).forEach((playerId) => {
+    const link = document.createElement("a");
+    link.href = `/player/${playerId}`;
+    link.textContent = `P${playerId}`;
+    link.className = viewContext.playerId === playerId ? "is-active" : "";
+    playerLinks.appendChild(link);
+  });
+}
+
 async function initGame() {
+  configurePageChrome();
   render();
   await loadGameConfig();
   await loadGameSession();
@@ -93,7 +147,7 @@ async function initGame() {
 
   if (state.bettingOpen && state.phase === "betting" && !state.roundResolved) {
     syncBetTimerFromDeadline();
-    if (state.betSecondsLeft === 0) {
+    if (state.betSecondsLeft === 0 && viewContext.role === "admin") {
       rollDice();
     } else {
       startBetTimer();
@@ -204,11 +258,15 @@ function renderPlayers() {
   playerList.innerHTML = "";
 
   state.players.forEach((player) => {
+    if (viewContext.role === "player" && player.id !== viewContext.playerId) {
+      return;
+    }
+
     const button = document.createElement("button");
     button.type = "button";
     button.className = "player-seat";
 
-    if (player.id === state.activePlayerId) {
+    if (player.id === getActivePlayer().id) {
       button.classList.add("is-active");
     }
 
@@ -223,7 +281,11 @@ function renderPlayers() {
       </div>
     `;
 
-    button.addEventListener("click", () => selectPlayer(player.id));
+    if (viewContext.role === "admin") {
+      button.addEventListener("click", () => selectPlayer(player.id));
+    } else {
+      button.disabled = true;
+    }
 
     playerList.appendChild(button);
   });
@@ -308,6 +370,14 @@ function renderHistory() {
 }
 
 function updateControls() {
+  if (viewContext.role !== "admin") {
+    startBettingBtn.hidden = true;
+    rollBtn.hidden = true;
+    nextRoundBtn.hidden = true;
+    resetBtn.hidden = true;
+    return;
+  }
+
   startBettingBtn.hidden = state.phase !== "staging";
   startBettingBtn.disabled = state.rolling || state.roundResolved;
   rollBtn.disabled = !state.bettingOpen || state.rolling || state.roundResolved;
@@ -330,6 +400,10 @@ async function buyCard(value) {
 }
 
 async function startBetting() {
+  if (viewContext.role !== "admin") {
+    return;
+  }
+
   if (state.phase !== "staging" || state.rolling || state.roundResolved) {
     return;
   }
@@ -354,6 +428,10 @@ async function placeSelectedCard(laneId) {
 }
 
 async function rollDice() {
+  if (viewContext.role !== "admin") {
+    return;
+  }
+
   if (!state.bettingOpen || state.phase !== "betting" || state.rolling || state.roundResolved) {
     return;
   }
@@ -412,10 +490,18 @@ function markWinningLane(laneId) {
 }
 
 async function startNextRound() {
+  if (viewContext.role !== "admin") {
+    return;
+  }
+
   await runGameAction("/api/game/actions/next-round");
 }
 
 async function resetGame() {
+  if (viewContext.role !== "admin") {
+    return;
+  }
+
   stopBetTimer();
   await runGameAction("/api/game/actions/reset");
 }
@@ -432,7 +518,11 @@ function startBetTimer() {
     betTimerEl.textContent = `${state.betSecondsLeft}s`;
 
     if (state.betSecondsLeft === 0) {
-      rollDice();
+      if (viewContext.role === "admin") {
+        rollDice();
+      } else {
+        loadGameSession().then(render);
+      }
     }
   }, 1000);
 }
@@ -462,6 +552,10 @@ function stopBetTimer() {
 }
 
 function getActivePlayer() {
+  if (viewContext.role === "player") {
+    return state.players.find((player) => player.id === viewContext.playerId) || state.players[0];
+  }
+
   return state.players.find((player) => player.id === state.activePlayerId) || state.players[0];
 }
 
@@ -613,9 +707,12 @@ function getCardDenominations() {
 function registerServiceWorker() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js").catch(() => {
+      navigator.serviceWorker.getRegistrations()
+        .then((registrations) => Promise.all(registrations.map((registration) => registration.update())))
+        .then(() => navigator.serviceWorker.register("./sw.js"))
+        .catch(() => {
         // Offline support is optional; the game should still run without it.
-      });
+        });
     });
   }
 }

@@ -76,7 +76,6 @@ const state = {
 };
 
 let sessionHydrated = false;
-let persistTimerId = null;
 
 initGame();
 registerServiceWorker();
@@ -85,7 +84,6 @@ startBettingBtn.addEventListener("click", startBetting);
 rollBtn.addEventListener("click", rollDice);
 nextRoundBtn.addEventListener("click", startNextRound);
 resetBtn.addEventListener("click", resetGame);
-window.addEventListener("pagehide", persistSessionOnPageHide);
 
 async function initGame() {
   render();
@@ -140,7 +138,6 @@ function render() {
   renderHand();
   renderHistory();
   updateControls();
-  scheduleSessionPersist();
 }
 
 function renderLanes() {
@@ -226,12 +223,7 @@ function renderPlayers() {
       </div>
     `;
 
-    button.addEventListener("click", () => {
-      state.activePlayerId = player.id;
-      state.selectedCardId = null;
-      state.selectedLane = null;
-      render();
-    });
+    button.addEventListener("click", () => selectPlayer(player.id));
 
     playerList.appendChild(button);
   });
@@ -322,49 +314,31 @@ function updateControls() {
   nextRoundBtn.hidden = !state.roundResolved;
 }
 
-function buyCard(value) {
-  const activePlayer = getActivePlayer();
+async function selectPlayer(playerId) {
+  await runGameAction("/api/game/actions/select-player", { playerId });
+}
 
+async function buyCard(value) {
   if (state.phase !== "staging") {
     return;
   }
 
-  if (activePlayer.walletBalance >= value) {
-    activePlayer.walletBalance -= value;
-  } else if (activePlayer.purchasedTotal + value <= gameSettings.maxPurchasePerPlayer) {
-    activePlayer.purchasedTotal += value;
-  } else {
-    return;
-  }
-
-  activePlayer.hand.push({
-    id: crypto.randomUUID(),
+  await runGameAction("/api/game/actions/buy-card", {
+    playerId: state.activePlayerId,
     value
   });
-
-  roundResult.textContent = `${activePlayer.name} added a ${formatRupees(value)} card.`;
-  roundDetail.textContent = `${activePlayer.name} has ${formatRupees(activePlayer.walletBalance)} remaining to convert and can buy ${formatRupees(gameSettings.maxPurchasePerPlayer - activePlayer.purchasedTotal)} more.`;
-  render();
-  saveGameSessionNow();
 }
 
-function startBetting() {
+async function startBetting() {
   if (state.phase !== "staging" || state.rolling || state.roundResolved) {
     return;
   }
 
-  state.phase = "betting";
-  state.bettingOpen = true;
-  state.betSecondsLeft = gameSettings.betTimeSeconds;
-  state.betEndsAt = Date.now() + gameSettings.betTimeSeconds * 1000;
-  roundResult.textContent = "Betting open";
-  roundDetail.textContent = `Players can place bought cards now. Dice roll when the ${gameSettings.betTimeSeconds}-second timer ends.`;
-  render();
-  saveGameSessionNow();
+  await runGameAction("/api/game/actions/start-betting");
   startBetTimer();
 }
 
-function placeSelectedCard(laneId) {
+async function placeSelectedCard(laneId) {
   const activePlayer = getActivePlayer();
   const card = activePlayer.hand.find((entry) => entry.id === state.selectedCardId);
 
@@ -372,14 +346,11 @@ function placeSelectedCard(laneId) {
     return;
   }
 
-  activePlayer.hand = activePlayer.hand.filter((entry) => entry.id !== card.id);
-  activePlayer.bets[laneId].push(card);
-  state.selectedLane = laneId;
-  state.selectedCardId = null;
-  roundResult.textContent = `${activePlayer.name} placed ${formatRupees(card.value)}.`;
-  roundDetail.textContent = `${formatRupees(getTablePot())} is now on the table. Dice roll when the timer ends, or you can roll now.`;
-  render();
-  saveGameSessionNow();
+  await runGameAction("/api/game/actions/place-bet", {
+    playerId: activePlayer.id,
+    cardId: card.id,
+    laneId
+  });
 }
 
 async function rollDice() {
@@ -387,6 +358,7 @@ async function rollDice() {
     return;
   }
 
+  const previousBetSecondsLeft = state.betSecondsLeft;
   stopBetTimer();
   state.bettingOpen = false;
   state.phase = "rolling";
@@ -399,14 +371,15 @@ async function rollDice() {
   roundResult.textContent = "Rolling...";
   roundDetail.textContent = "The winning lane is decided by the total of both dice.";
 
-  let roll;
+  let session;
   try {
-    roll = await fetchRoll();
+    session = await postGameAction("/api/game/actions/roll");
   } catch (error) {
     state.rolling = false;
     state.phase = "betting";
     state.bettingOpen = true;
-    state.betEndsAt = Date.now() + Math.max(state.betSecondsLeft, 1) * 1000;
+    state.betSecondsLeft = previousBetSecondsLeft;
+    state.betEndsAt = Date.now() + Math.max(previousBetSecondsLeft, 1) * 1000;
     rollBtn.disabled = false;
     roundResult.textContent = "Roll failed";
     roundDetail.textContent = "The backend could not roll the dice. Check the server and try again.";
@@ -421,52 +394,12 @@ async function rollDice() {
 
   window.setTimeout(() => {
     window.clearInterval(ticker);
-    const { dice, sum, winningLaneId } = roll;
-    const winningLane = lanes.find((lane) => lane.id === winningLaneId) || lanes.find((lane) => lane.test(sum));
 
-    dieOne.textContent = dice[0];
-    dieTwo.textContent = dice[1];
     dicePair.classList.remove("is-rolling");
-    resolveRound(dice, sum, winningLane);
+    applyGameSession(session);
+    render();
+    markWinningLane(state.winningLaneId);
   }, 900);
-}
-
-function resolveRound(dice, sum, winningLane) {
-  const winners = state.players
-    .map((player) => ({
-      player,
-      bet: getPlayerLaneBet(player, winningLane.id)
-    }))
-    .filter((entry) => entry.bet > 0);
-
-  winners.forEach(({ player, bet }) => {
-    player.winnings += bet * winningLane.payoutMultiplier;
-  });
-
-  const winnerText = winners.length
-    ? `${winners.length} winner${winners.length === 1 ? "" : "s"} paid ${winningLane.payoutMultiplier}x.`
-    : "No player bet on the winning lane.";
-
-  state.rolling = false;
-  state.roundResolved = true;
-  state.phase = "resolved";
-  state.winningLaneId = winningLane.id;
-  state.betEndsAt = null;
-  roundResult.textContent = `${dice[0]} + ${dice[1]} = ${sum}. ${winningLane.title} wins.`;
-  roundDetail.textContent = winners.length
-    ? `${winnerText} ${winners.map(({ player, bet }) => `${player.name} +${formatRupees(bet * winningLane.payoutMultiplier)}`).join(", ")}.`
-    : winnerText;
-  state.history.unshift({
-    round: state.round,
-    dice,
-    sum,
-    laneTitle: winningLane.title,
-    winnerText
-  });
-
-  render();
-  saveGameSessionNow();
-  markWinningLane(winningLane.id);
 }
 
 function markWinningLane(laneId) {
@@ -478,72 +411,13 @@ function markWinningLane(laneId) {
   }
 }
 
-function startNextRound() {
-  state.round += 1;
-  state.selectedCardId = null;
-  state.selectedLane = null;
-  state.winningLaneId = null;
-  state.rolling = false;
-  state.roundResolved = false;
-  state.phase = "staging";
-  state.bettingOpen = false;
-  state.betSecondsLeft = gameSettings.betTimeSeconds;
-  state.betEndsAt = null;
-  state.players.forEach((player) => {
-    const availableTotal = getPlayerTotalMoney(player);
-
-    player.walletBalance = availableTotal;
-    player.hand = [];
-    player.winnings = 0;
-    player.bets = createEmptyBets();
-  });
-  dieOne.textContent = "?";
-  dieTwo.textContent = "?";
-  roundResult.textContent = "Staging: buy cards";
-  roundDetail.textContent = `Each player can buy up to ${formatRupees(gameSettings.maxPurchasePerPlayer)}. The owner starts the betting timer when ready.`;
-  render();
-  saveGameSessionNow();
+async function startNextRound() {
+  await runGameAction("/api/game/actions/next-round");
 }
 
-function resetGame() {
+async function resetGame() {
   stopBetTimer();
-  const savedPlayers = state.players.map((player) => ({
-    winnings: player.winnings,
-    purchasedTotal: player.purchasedTotal,
-    walletBalance: player.walletBalance + getPlayerRoundBet(player),
-    hand: player.hand
-  }));
-  state.round = 1;
-  state.activePlayerId = 1;
-  state.selectedCardId = null;
-  state.selectedLane = null;
-  state.winningLaneId = null;
-  state.phase = "staging";
-  state.rolling = false;
-  state.roundResolved = false;
-  state.bettingOpen = false;
-  state.betSecondsLeft = gameSettings.betTimeSeconds;
-  state.betEndsAt = null;
-  state.players = createPlayers();
-  state.players.forEach((player, index) => {
-    const savedPlayer = savedPlayers[index];
-
-    if (!savedPlayer) {
-      return;
-    }
-
-    player.winnings = savedPlayer.winnings;
-    player.purchasedTotal = savedPlayer.purchasedTotal;
-    player.walletBalance = savedPlayer.walletBalance;
-    player.hand = savedPlayer.hand;
-  });
-  state.history = [];
-  dieOne.textContent = "?";
-  dieTwo.textContent = "?";
-  roundResult.textContent = "Staging: buy cards";
-  roundDetail.textContent = `Each player can buy up to ${formatRupees(gameSettings.maxPurchasePerPlayer)}. The owner starts the betting timer when ready.`;
-  render();
-  saveGameSessionNow();
+  await runGameAction("/api/game/actions/reset");
 }
 
 function startBetTimer() {
@@ -559,8 +433,6 @@ function startBetTimer() {
 
     if (state.betSecondsLeft === 0) {
       rollDice();
-    } else {
-      scheduleSessionPersist();
     }
   }, 1000);
 }
@@ -630,21 +502,6 @@ function randomDie() {
   return Math.floor(Math.random() * 6) + 1;
 }
 
-async function fetchRoll() {
-  const response = await fetch("/api/roll", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error("Roll request failed");
-  }
-
-  return response.json();
-}
-
 async function loadGameConfig() {
   try {
     const response = await fetch("/api/game/config");
@@ -679,7 +536,6 @@ async function loadGameSession() {
     sessionHydrated = true;
   } catch (error) {
     sessionHydrated = true;
-    scheduleSessionPersist();
   }
 }
 
@@ -711,76 +567,37 @@ function applyGameSession(session) {
   roundDetail.textContent = session.ui?.roundDetail || "Players can buy digital cards now. The owner starts the betting timer when the table is ready.";
 }
 
-function scheduleSessionPersist() {
-  if (!sessionHydrated) {
-    return;
-  }
-
-  window.clearTimeout(persistTimerId);
-  persistTimerId = window.setTimeout(saveGameSession, 150);
-}
-
-function saveGameSessionNow() {
-  window.clearTimeout(persistTimerId);
-  return saveGameSession();
-}
-
-async function saveGameSession() {
+async function runGameAction(url, payload = {}) {
   try {
-    await fetch("/api/game/session", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(snapshotGameSession())
-    });
+    const session = await postGameAction(url, payload);
+    applyGameSession(session);
+    render();
+
+    if (state.bettingOpen && state.phase === "betting" && !state.roundResolved) {
+      startBetTimer();
+    }
   } catch (error) {
-    // The current browser state remains playable if persistence is unavailable.
+    roundResult.textContent = "Action failed";
+    roundDetail.textContent = error.message;
   }
 }
 
-function persistSessionOnPageHide() {
-  if (!sessionHydrated) {
-    return;
-  }
-
-  window.clearTimeout(persistTimerId);
-  const payload = JSON.stringify(snapshotGameSession());
-
-  if (navigator.sendBeacon) {
-    navigator.sendBeacon("/api/game/session", new Blob([payload], { type: "application/json" }));
-    return;
-  }
-
-  fetch("/api/game/session", {
-    method: "PUT",
+async function postGameAction(url, payload = {}) {
+  const response = await fetch(url, {
+    method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: payload,
-    keepalive: true
-  }).catch(() => {});
-}
+    body: JSON.stringify(payload)
+  });
 
-function snapshotGameSession() {
-  const { betTimerId, ...persistedState } = state;
+  const body = await response.json();
 
-  if (persistedState.bettingOpen && persistedState.phase === "betting") {
-    persistedState.betSecondsLeft = syncBetTimerFromDeadline();
+  if (!response.ok) {
+    throw new Error(body.error || "The server rejected the action.");
   }
 
-  return {
-    state: {
-      ...persistedState,
-      rolling: false
-    },
-    ui: {
-      dieOne: dieOne.textContent,
-      dieTwo: dieTwo.textContent,
-      roundResult: roundResult.textContent,
-      roundDetail: roundDetail.textContent
-    }
-  };
+  return body;
 }
 
 function formatRupees(value) {

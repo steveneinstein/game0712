@@ -64,6 +64,8 @@ const playerPanelTitle = document.querySelector("#playerPanelTitle");
 const adminLink = document.querySelector("#adminLink");
 const playerLinks = document.querySelector("#playerLinks");
 const controlsPanel = document.querySelector(".controls");
+const adminKeyField = document.querySelector("#adminKeyField");
+const adminKeyInput = document.querySelector("#adminKeyInput");
 
 const state = {
   round: 1,
@@ -92,6 +94,7 @@ startBettingBtn.addEventListener("click", startBetting);
 rollBtn.addEventListener("click", rollDice);
 nextRoundBtn.addEventListener("click", startNextRound);
 resetBtn.addEventListener("click", resetGame);
+adminKeyInput.addEventListener("input", saveAdminKey);
 
 function getViewContext() {
   const playerMatch = window.location.pathname.match(/^\/player\/(\d+)$/);
@@ -122,6 +125,8 @@ function configurePageChrome() {
     ? "Monitor players and manage table flow"
     : "Buy cards, then place your selected card when betting opens";
   controlsPanel.classList.toggle("is-admin-only", !isAdmin);
+  adminKeyField.hidden = !isAdmin;
+  adminKeyInput.value = getAdminKey();
   adminLink.classList.toggle("is-active", isAdmin);
   renderPlayerLinks();
 }
@@ -136,6 +141,14 @@ function renderPlayerLinks() {
     link.className = viewContext.playerId === playerId ? "is-active" : "";
     playerLinks.appendChild(link);
   });
+}
+
+function getAdminKey() {
+  return window.sessionStorage.getItem("lucky7AdminKey") || "";
+}
+
+function saveAdminKey() {
+  window.sessionStorage.setItem("lucky7AdminKey", adminKeyInput.value.trim());
 }
 
 async function initGame() {
@@ -677,11 +690,18 @@ async function runGameAction(url, payload = {}) {
 }
 
 async function postGameAction(url, payload = {}) {
+  const headers = {
+    "Content-Type": "application/json"
+  };
+  const adminKey = getAdminKey();
+
+  if (adminKey) {
+    headers["x-admin-key"] = adminKey;
+  }
+
   const response = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers,
     body: JSON.stringify(payload)
   });
 

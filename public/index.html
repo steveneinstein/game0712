@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="/style.css?v=6">
+  <link rel="stylesheet" href="/style.css?v=7">
 </head>
 <body>
   <main class="game-shell">
@@ -57,6 +57,10 @@
       </div>
 
       <div class="controls">
+        <label class="admin-key-field" id="adminKeyField">
+          <span>Admin key</span>
+          <input id="adminKeyInput" type="password" autocomplete="current-password" placeholder="Enter admin key">
+        </label>
         <div class="timer-card" aria-live="polite">
           <span id="timerLabel">Stage</span>
           <strong id="betTimer">Ready</strong>
@@ -105,6 +109,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=6"></script>
+  <script src="/app.js?v=7"></script>
 </body>
 </html>

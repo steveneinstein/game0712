@@ -41,6 +41,8 @@ Open `http://localhost:3000`.
 
 Admin-only action routes can be protected by setting `ADMIN_KEY` in the server environment. If `ADMIN_KEY` is not set, admin actions are open for local testing.
 
+When `ADMIN_KEY` is set, open `/admin` and enter the same key in the Admin key field before using Start betting, Roll now, Next round, or Reset game. The key is stored only in that browser tab session and is sent as the `x-admin-key` request header.
+
 ## Deploy on Render
 
 This project is ready for Render as a Node web service.

@@ -160,6 +160,35 @@ h2 {
   display: none;
 }
 
+.admin-key-field {
+  display: grid;
+  gap: 6px;
+  min-width: min(220px, 100%);
+}
+
+.admin-key-field span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.admin-key-field input {
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 211, 106, 0.28);
+  border-radius: 8px;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.24);
+  outline: none;
+}
+
+.admin-key-field input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(255, 211, 106, 0.14);
+}
+
 .table-top {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

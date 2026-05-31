@@ -40,3 +40,18 @@ Open `http://localhost:3000`.
 - `/player/1` through `/player/10` - individual player pages for buying cards and placing bets.
 
 Admin-only action routes can be protected by setting `ADMIN_KEY` in the server environment. If `ADMIN_KEY` is not set, admin actions are open for local testing.
+
+## Deploy on Render
+
+This project is ready for Render as a Node web service.
+
+Recommended Render settings:
+
+- Build command: `npm install`
+- Start command: `npm start`
+- Health check path: `/api/health`
+- Environment variable: `ADMIN_KEY`
+
+The included `render.yaml` can also be used as a Render Blueprint.
+
+Before going live, set `ADMIN_KEY` in Render so admin-only actions are protected. Current game state is still stored in server memory, so it can reset when Render restarts or redeploys the service.

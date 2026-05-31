@@ -64,6 +64,7 @@ const playerPanelTitle = document.querySelector("#playerPanelTitle");
 const adminLink = document.querySelector("#adminLink");
 const playerLoginLink = document.querySelector("#playerLoginLink");
 const playerLinks = document.querySelector("#playerLinks");
+const roleNav = document.querySelector(".role-nav");
 const controlsPanel = document.querySelector(".controls");
 const adminKeyField = document.querySelector("#adminKeyField");
 const adminKeyInput = document.querySelector("#adminKeyInput");
@@ -162,6 +163,7 @@ function configurePageChrome() {
     ? "Monitor players and manage table flow"
     : "Buy cards, then place your selected card when betting opens";
   loginPanel.hidden = !isLogin;
+  roleNav.hidden = viewContext.role === "player" || viewContext.role === "player-login";
   document.querySelector(".table-top").hidden = isLogin;
   laneGrid.hidden = isLogin;
   document.querySelector(".player-panel").hidden = isLogin;
@@ -857,7 +859,7 @@ async function postGameAction(url, payload = {}) {
   };
   const adminKey = getAdminKey();
 
-  if (adminKey) {
+  if (viewContext.role === "admin" && adminKey) {
     headers["x-admin-key"] = adminKey;
   }
 

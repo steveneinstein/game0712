@@ -67,6 +67,7 @@ function createPlayers() {
     id: index + 1,
     name: `Player ${index + 1}`,
     consentToken: createConsentToken(),
+    authToken: null,
     winnings: 0,
     purchasedTotal: 0,
     walletBalance: 0,

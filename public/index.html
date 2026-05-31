@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="/style.css?v=12">
+  <link rel="stylesheet" href="/style.css?v=14">
 </head>
 <body>
   <main class="game-shell">
@@ -50,19 +50,16 @@
         <h2 id="loginTitle">Enter game</h2>
         <p id="loginDetail" class="limit-text">Choose how you want to enter the table.</p>
       </div>
-      <form id="adminLoginForm" class="login-form" hidden>
+      <form id="loginForm" class="login-form">
         <label>
-          <span>Admin key</span>
-          <input id="loginAdminKeyInput" type="password" autocomplete="current-password" placeholder="Enter admin key">
+          <span>Username</span>
+          <input id="loginUsernameInput" type="text" autocomplete="username" placeholder="admin or player1">
         </label>
-        <button type="submit" class="primary-btn">Enter admin</button>
-      </form>
-      <form id="playerLoginForm" class="login-form" hidden>
         <label>
-          <span>Player seat</span>
-          <select id="playerLoginSelect"></select>
+          <span>Password</span>
+          <input id="loginPasswordInput" type="password" autocomplete="current-password" placeholder="Enter password">
         </label>
-        <button type="submit" class="primary-btn">Enter player page</button>
+        <button type="submit" class="primary-btn">Enter game</button>
       </form>
     </section>
 
@@ -81,8 +78,8 @@
 
       <div class="controls">
         <label class="admin-key-field" id="adminKeyField">
-          <span>Admin key</span>
-          <input id="adminKeyInput" type="password" autocomplete="current-password" placeholder="Enter admin key">
+          <span>Admin password</span>
+          <input id="adminKeyInput" type="password" autocomplete="current-password" placeholder="Enter admin password">
         </label>
         <label class="admin-key-field" id="playerConsentField" hidden>
           <span>Consent token</span>
@@ -137,6 +134,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=12"></script>
+  <script src="/app.js?v=14"></script>
 </body>
 </html>

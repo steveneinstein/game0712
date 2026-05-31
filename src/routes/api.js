@@ -1,4 +1,5 @@
 const express = require("express");
+const { randomUUID } = require("crypto");
 const { lanes, settings } = require("../config/game");
 const { getSession, updateSession, resetSession } = require("../store/sessionStore");
 const {
@@ -35,40 +36,148 @@ router.delete("/game/session", (req, res) => {
   res.json(resetSession());
 });
 
-function requireAdmin(req, res, next) {
-  const adminKey = process.env.ADMIN_KEY;
+router.post("/auth/login", (req, res) => {
+  const username = String(req.body.username || "").trim();
+  const password = String(req.body.password || "");
+  const playerId = getPlayerIdFromUsername(username);
 
-  if (!adminKey) {
-    next();
+  if (username === getAdminUsername() && password === getAdminPassword()) {
+    res.json({
+      role: "admin",
+      adminToken: getAdminPassword()
+    });
     return;
   }
 
-  if (req.get("x-admin-key") !== adminKey) {
-    res.status(401).json({ error: "Admin key required." });
+  if (playerId && password.trim() === getPlayerPin(playerId)) {
+    issuePlayerLogin(playerId, res);
+    return;
+  }
+
+  res.status(401).json({ error: "Invalid username or password." });
+});
+
+router.post("/auth/admin-login", (req, res) => {
+  const username = String(req.body.username || "").trim();
+  const password = String(req.body.password || "");
+
+  if (username !== getAdminUsername() || password !== getAdminPassword()) {
+    res.status(401).json({ error: "Invalid admin credentials." });
+    return;
+  }
+
+  res.json({ adminToken: getAdminPassword() });
+});
+
+router.post("/auth/player-login", (req, res) => {
+  const playerId = Number(req.body.playerId);
+  const pin = String(req.body.pin || "").trim();
+
+  if (!playerId || !pin) {
+    res.status(400).json({ error: "Player seat and PIN required." });
+    return;
+  }
+
+  if (pin !== getPlayerPin(playerId)) {
+    res.status(401).json({ error: "Invalid player credentials." });
+    return;
+  }
+
+  issuePlayerLogin(playerId, res);
+});
+
+function issuePlayerLogin(playerId, res) {
+  try {
+    const session = updateSession((currentSession) => {
+      const player = currentSession.state.players.find((entry) => entry.id === playerId);
+
+      if (!player) {
+        throw new Error("Player not found.");
+      }
+
+      player.authToken = randomUUID();
+      return currentSession;
+    });
+    const player = session.state.players.find((entry) => entry.id === playerId);
+
+    res.json({
+      playerId,
+      role: "player",
+      playerToken: player.authToken
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+}
+
+function getAdminUsername() {
+  return process.env.ADMIN_USERNAME || "admin";
+}
+
+function getAdminPassword() {
+  return process.env.ADMIN_PASSWORD || process.env.ADMIN_KEY || "admin";
+}
+
+function getPlayerPin(playerId) {
+  const configuredPins = String(process.env.PLAYER_PINS || "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  const configuredPin = configuredPins
+    .map((entry) => entry.split(":").map((part) => part.trim()))
+    .find(([id]) => Number(id) === Number(playerId));
+
+  if (configuredPin && configuredPin[1]) {
+    return configuredPin[1];
+  }
+
+  return String(playerId).padStart(4, "0");
+}
+
+function getPlayerIdFromUsername(username) {
+  const normalized = username.toLowerCase();
+  const match = normalized.match(/^player\s*([1-9]|10)$/) || normalized.match(/^p([1-9]|10)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  return Number(match[1]);
+}
+
+function isAdminRequest(req) {
+  return req.get("x-admin-key") === getAdminPassword();
+}
+
+function requireAdmin(req, res, next) {
+  if (!isAdminRequest(req)) {
+    res.status(401).json({ error: "Admin login required." });
     return;
   }
 
   next();
 }
 
-function isAdminRequest(req) {
-  const adminKey = process.env.ADMIN_KEY;
+function isPlayerRequest(req, playerId) {
+  const session = getSession();
+  const player = session.state.players.find((entry) => entry.id === Number(playerId));
 
-  if (!adminKey) {
-    return Boolean(req.get("x-admin-key"));
-  }
-
-  return req.get("x-admin-key") === adminKey;
+  return Boolean(player && player.authToken && req.get("x-player-auth-token") === player.authToken);
 }
 
 function filterSessionForRequest(session, req) {
   const playerId = Number(req.get("x-player-id"));
+  const playerToken = req.get("x-player-auth-token");
   const filtered = JSON.parse(JSON.stringify(session));
+  const readablePlayer = session.state.players.find((player) =>
+    player.id === playerId && player.authToken && player.authToken === playerToken
+  );
 
   filtered.state.players.forEach((player) => {
-    if (player.id !== playerId) {
+    if (!readablePlayer || player.id !== readablePlayer.id) {
       delete player.consentToken;
     }
+    delete player.authToken;
   });
 
   return filtered;
@@ -95,7 +204,7 @@ function requirePlayerControl(req, res, next) {
     return;
   }
 
-  if (Number(req.get("x-player-id")) !== playerId) {
+  if (Number(req.get("x-player-id")) !== playerId || !isPlayerRequest(req, playerId)) {
     res.status(403).json({ error: "Player login required." });
     return;
   }
@@ -103,40 +212,40 @@ function requirePlayerControl(req, res, next) {
   next();
 }
 
-function runAction(res, action) {
+function runAction(req, res, action) {
   try {
-    res.json(updateSession(action));
+    res.json(filterSessionForRequest(updateSession(action), req));
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 }
 
 router.post("/game/actions/select-player", (req, res) => {
-  runAction(res, (session) => selectPlayer(session, req.body.playerId));
+  runAction(req, res, (session) => selectPlayer(session, req.body.playerId));
 });
 
 router.post("/game/actions/buy-card", requirePlayerControl, (req, res) => {
-  runAction(res, (session) => buyCard(session, req.body.playerId, req.body.value));
+  runAction(req, res, (session) => buyCard(session, req.body.playerId, req.body.value));
 });
 
 router.post("/game/actions/start-betting", requireAdmin, (req, res) => {
-  runAction(res, startBetting);
+  runAction(req, res, startBetting);
 });
 
 router.post("/game/actions/place-bet", requirePlayerControl, (req, res) => {
-  runAction(res, (session) => placeBet(session, req.body.playerId, req.body.cardId, req.body.laneId));
+  runAction(req, res, (session) => placeBet(session, req.body.playerId, req.body.cardId, req.body.laneId));
 });
 
 router.post("/game/actions/roll", requireAdmin, (req, res) => {
-  runAction(res, rollAndResolve);
+  runAction(req, res, rollAndResolve);
 });
 
 router.post("/game/actions/next-round", requireAdmin, (req, res) => {
-  runAction(res, nextRound);
+  runAction(req, res, nextRound);
 });
 
 router.post("/game/actions/reset", requireAdmin, (req, res) => {
-  runAction(res, resetGame);
+  runAction(req, res, resetGame);
 });
 
 module.exports = router;

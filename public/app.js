@@ -75,10 +75,9 @@ const loginPanel = document.querySelector("#loginPanel");
 const loginLabel = document.querySelector("#loginLabel");
 const loginTitle = document.querySelector("#loginTitle");
 const loginDetail = document.querySelector("#loginDetail");
-const adminLoginForm = document.querySelector("#adminLoginForm");
-const playerLoginForm = document.querySelector("#playerLoginForm");
-const loginAdminKeyInput = document.querySelector("#loginAdminKeyInput");
-const playerLoginSelect = document.querySelector("#playerLoginSelect");
+const loginForm = document.querySelector("#loginForm");
+const loginUsernameInput = document.querySelector("#loginUsernameInput");
+const loginPasswordInput = document.querySelector("#loginPasswordInput");
 
 const state = {
   round: 1,
@@ -110,8 +109,7 @@ nextRoundBtn.addEventListener("click", startNextRound);
 resetBtn.addEventListener("click", resetGame);
 adminKeyInput.addEventListener("input", saveAdminKey);
 playerConsentInput.addEventListener("input", savePlayerConsentToken);
-adminLoginForm.addEventListener("submit", handleAdminLogin);
-playerLoginForm.addEventListener("submit", handlePlayerLogin);
+loginForm.addEventListener("submit", handleLogin);
 
 function getViewContext() {
   if (window.location.pathname === "/" || window.location.pathname === "/login") {
@@ -177,19 +175,9 @@ function configurePageChrome() {
   laneGrid.hidden = isLogin;
   document.querySelector(".player-panel").hidden = isLogin;
   document.querySelector(".history-panel").hidden = isLogin;
-  adminLoginForm.hidden = viewContext.role === "player-login";
-  playerLoginForm.hidden = viewContext.role === "admin-login";
-  loginLabel.textContent = viewContext.role === "admin-login"
-    ? "Admin"
-    : viewContext.role === "player-login" ? "Player" : "Choose role";
-  loginTitle.textContent = viewContext.role === "admin-login"
-    ? "Admin login"
-    : viewContext.role === "player-login" ? "Player login" : "Enter the table";
-  loginDetail.textContent = viewContext.role === "admin-login"
-    ? "Enter the admin key from your Render environment variable."
-    : viewContext.role === "player-login"
-      ? "Choose your player seat to open your live player page."
-      : "Admins enter the table key. Players choose only their assigned seat.";
+  loginLabel.textContent = "Login";
+  loginTitle.textContent = "Enter the table";
+  loginDetail.textContent = "Use admin credentials or a player username such as player1.";
   controlsPanel.classList.toggle("is-admin-only", !isAdmin);
   adminKeyField.hidden = !isAdmin;
   adminKeyInput.value = getAdminKey();
@@ -197,7 +185,6 @@ function configurePageChrome() {
   playerConsentInput.value = getPlayerConsentToken(state.activePlayerId);
   adminLink.classList.toggle("is-active", isAdmin);
   playerLoginLink.classList.toggle("is-active", viewContext.role === "player-login");
-  populatePlayerLogin();
   renderPlayerLinks();
 }
 
@@ -219,19 +206,6 @@ function renderPlayerLinks() {
   });
 }
 
-function populatePlayerLogin() {
-  if (playerLoginSelect.children.length) {
-    return;
-  }
-
-  Array.from({ length: gameSettings.maxPlayers }, (_, index) => index + 1).forEach((playerId) => {
-    const option = document.createElement("option");
-    option.value = playerId;
-    option.textContent = `Player ${playerId}`;
-    playerLoginSelect.appendChild(option);
-  });
-}
-
 function getAdminKey() {
   return window.sessionStorage.getItem("lucky7AdminKey") || "";
 }
@@ -242,6 +216,10 @@ function saveAdminKey() {
 
 function getLoggedInPlayerId() {
   return Number(window.sessionStorage.getItem("lucky7PlayerId"));
+}
+
+function getPlayerAuthToken() {
+  return window.sessionStorage.getItem("lucky7PlayerToken") || "";
 }
 
 function getPlayerConsentToken(playerId) {
@@ -265,17 +243,45 @@ function savePlayerConsentToken() {
   render();
 }
 
-function handleAdminLogin(event) {
+async function handleLogin(event) {
   event.preventDefault();
-  window.sessionStorage.setItem("lucky7AdminKey", loginAdminKeyInput.value.trim());
-  window.location.href = "/admin";
-}
+  try {
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        username: loginUsernameInput.value.trim(),
+        password: loginPasswordInput.value
+      })
+    });
+    const body = await response.json();
 
-function handlePlayerLogin(event) {
-  event.preventDefault();
-  const playerId = Number(playerLoginSelect.value);
-  window.sessionStorage.setItem("lucky7PlayerId", String(playerId));
-  window.location.href = `/player/${playerId}`;
+    if (!response.ok) {
+      throw new Error(body.error || "Login failed.");
+    }
+
+    if (body.role === "admin") {
+      window.sessionStorage.setItem("lucky7AdminKey", body.adminToken);
+      window.sessionStorage.removeItem("lucky7PlayerId");
+      window.sessionStorage.removeItem("lucky7PlayerToken");
+      window.location.href = "/admin";
+      return;
+    }
+
+    if (body.role === "player") {
+      window.sessionStorage.removeItem("lucky7AdminKey");
+      window.sessionStorage.setItem("lucky7PlayerId", String(body.playerId));
+      window.sessionStorage.setItem("lucky7PlayerToken", body.playerToken);
+      window.location.href = `/player/${body.playerId}`;
+      return;
+    }
+
+    throw new Error("Login failed.");
+  } catch (error) {
+    loginDetail.textContent = error.message;
+  }
 }
 
 async function initGame() {
@@ -286,7 +292,7 @@ async function initGame() {
     return;
   }
 
-  if (viewContext.role === "player" && getLoggedInPlayerId() !== viewContext.playerId) {
+  if (viewContext.role === "player" && (getLoggedInPlayerId() !== viewContext.playerId || !getPlayerAuthToken())) {
     window.location.replace("/login");
     return;
   }
@@ -801,7 +807,8 @@ async function loadGameSession() {
 function getSessionHeaders() {
   if (viewContext.role === "player") {
     return {
-      "x-player-id": String(viewContext.playerId)
+      "x-player-id": String(viewContext.playerId),
+      "x-player-auth-token": getPlayerAuthToken()
     };
   }
 
@@ -893,6 +900,7 @@ async function postGameAction(url, payload = {}) {
 
   if (viewContext.role === "player") {
     headers["x-player-id"] = String(viewContext.playerId);
+    headers["x-player-auth-token"] = getPlayerAuthToken();
   }
 
   if (viewContext.role === "admin" && payload.playerId) {

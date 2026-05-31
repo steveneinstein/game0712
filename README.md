@@ -42,7 +42,7 @@ Open `http://localhost:3000`.
 - `/admin` - admin table controls for starting betting, rolling dice, next round, and reset.
 - `/player/1` through `/player/10` - individual player pages for buying cards and placing bets.
 
-Admin login uses `ADMIN_USERNAME` and `ADMIN_PASSWORD`. For local testing, defaults are `admin` / `admin`. If `ADMIN_PASSWORD` is not set but `ADMIN_KEY` is set, `ADMIN_KEY` is used as the admin password.
+Admin login uses `ADMIN_USERNAME` and `ADMIN_PASSWORD`. For local testing, defaults are `admin` / `admin`.
 
 Player login uses the same username/password form as admin. Player usernames are `player1` through `player10` (short form `p1` through `p10` also works). For local testing, default player passwords are the four-digit player number: `player1` / `0001`, `player2` / `0002`, through `player10` / `0010`. Set `PLAYER_PINS` to override them, using comma-separated `player:pin` pairs such as `1:2468,2:1357`.
 

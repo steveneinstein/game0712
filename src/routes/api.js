@@ -115,7 +115,7 @@ function getAdminUsername() {
 }
 
 function getAdminPassword() {
-  return process.env.ADMIN_PASSWORD || process.env.ADMIN_KEY || "admin";
+  return process.env.ADMIN_PASSWORD || "admin";
 }
 
 function getPlayerPin(playerId) {

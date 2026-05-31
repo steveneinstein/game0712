@@ -15,9 +15,11 @@ function sendApp(req, res) {
 }
 
 app.get("/", (req, res) => {
-  res.redirect("/admin");
+  res.redirect("/admin-login");
 });
 
+app.get("/admin-login", sendApp);
+app.get("/player-login", sendApp);
 app.get("/admin", sendApp);
 app.get("/player/:playerId", sendApp);
 

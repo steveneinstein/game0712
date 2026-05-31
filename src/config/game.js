@@ -38,6 +38,10 @@ const settings = {
   cardDenominations: [10, 50, 100, 200, 500]
 };
 
+function createConsentToken() {
+  return Math.random().toString(36).slice(2, 6).toUpperCase();
+}
+
 function rollDie() {
   return Math.floor(Math.random() * 6) + 1;
 }
@@ -62,6 +66,7 @@ function createPlayers() {
   return Array.from({ length: settings.maxPlayers }, (_, index) => ({
     id: index + 1,
     name: `Player ${index + 1}`,
+    consentToken: createConsentToken(),
     winnings: 0,
     purchasedTotal: 0,
     walletBalance: 0,

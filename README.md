@@ -36,12 +36,16 @@ Open `http://localhost:3000`.
 
 ## Pages
 
+- `/admin-login` - admin login page.
+- `/player-login` - player seat login page.
 - `/admin` - admin table controls for starting betting, rolling dice, next round, and reset.
 - `/player/1` through `/player/10` - individual player pages for buying cards and placing bets.
 
 Admin-only action routes can be protected by setting `ADMIN_KEY` in the server environment. If `ADMIN_KEY` is not set, admin actions are open for local testing.
 
 When `ADMIN_KEY` is set, open `/admin` and enter the same key in the Admin key field before using Start betting, Roll now, Next round, or Reset game. The key is stored only in that browser tab session and is sent as the `x-admin-key` request header.
+
+Player pages display a consent token. Admin can view player balances and bets, but must enter a player's consent token before buying cards or placing bets for that player. Live table state refreshes automatically every second.
 
 ## Deploy on Render
 

@@ -62,10 +62,22 @@ const pageTitle = document.querySelector("#pageTitle");
 const pageIntro = document.querySelector("#pageIntro");
 const playerPanelTitle = document.querySelector("#playerPanelTitle");
 const adminLink = document.querySelector("#adminLink");
+const playerLoginLink = document.querySelector("#playerLoginLink");
 const playerLinks = document.querySelector("#playerLinks");
 const controlsPanel = document.querySelector(".controls");
 const adminKeyField = document.querySelector("#adminKeyField");
 const adminKeyInput = document.querySelector("#adminKeyInput");
+const playerConsentField = document.querySelector("#playerConsentField");
+const playerConsentInput = document.querySelector("#playerConsentInput");
+const consentTokenText = document.querySelector("#consentTokenText");
+const loginPanel = document.querySelector("#loginPanel");
+const loginLabel = document.querySelector("#loginLabel");
+const loginTitle = document.querySelector("#loginTitle");
+const loginDetail = document.querySelector("#loginDetail");
+const adminLoginForm = document.querySelector("#adminLoginForm");
+const playerLoginForm = document.querySelector("#playerLoginForm");
+const loginAdminKeyInput = document.querySelector("#loginAdminKeyInput");
+const playerLoginSelect = document.querySelector("#playerLoginSelect");
 
 const state = {
   round: 1,
@@ -86,6 +98,7 @@ const state = {
 
 const viewContext = getViewContext();
 let sessionHydrated = false;
+let liveSyncId = null;
 
 initGame();
 registerServiceWorker();
@@ -95,8 +108,25 @@ rollBtn.addEventListener("click", rollDice);
 nextRoundBtn.addEventListener("click", startNextRound);
 resetBtn.addEventListener("click", resetGame);
 adminKeyInput.addEventListener("input", saveAdminKey);
+playerConsentInput.addEventListener("input", savePlayerConsentToken);
+adminLoginForm.addEventListener("submit", handleAdminLogin);
+playerLoginForm.addEventListener("submit", handlePlayerLogin);
 
 function getViewContext() {
+  if (window.location.pathname === "/admin-login") {
+    return {
+      role: "admin-login",
+      playerId: null
+    };
+  }
+
+  if (window.location.pathname === "/player-login") {
+    return {
+      role: "player-login",
+      playerId: null
+    };
+  }
+
   const playerMatch = window.location.pathname.match(/^\/player\/(\d+)$/);
   const playerId = playerMatch ? Number(playerMatch[1]) : null;
 
@@ -115,19 +145,42 @@ function getViewContext() {
 
 function configurePageChrome() {
   const isAdmin = viewContext.role === "admin";
+  const isLogin = viewContext.role.endsWith("-login");
 
-  pageEyebrow.textContent = isAdmin ? "Admin table" : "Player table";
-  pageTitle.textContent = isAdmin ? "Lucky 7 Admin" : `Player ${viewContext.playerId}`;
+  pageEyebrow.textContent = isLogin ? "Secure entry" : isAdmin ? "Admin table" : "Player table";
+  pageTitle.textContent = viewContext.role === "admin-login"
+    ? "Admin Login"
+    : viewContext.role === "player-login"
+      ? "Player Login"
+      : isAdmin ? "Lucky 7 Admin" : `Player ${viewContext.playerId}`;
   pageIntro.textContent = isAdmin
     ? "Control the round, monitor all players, roll dice, and move the table forward."
-    : "Buy your cards, choose one during betting, and place it on Below 7, Exact 7, or Above 7.";
+    : viewContext.role === "player"
+      ? "Buy your cards, choose one during betting, and place it on Below 7, Exact 7, or Above 7."
+      : "Enter with your admin key or player seat before joining the live table.";
   playerPanelTitle.textContent = isAdmin
     ? "Monitor players and manage table flow"
     : "Buy cards, then place your selected card when betting opens";
+  loginPanel.hidden = !isLogin;
+  document.querySelector(".table-top").hidden = isLogin;
+  laneGrid.hidden = isLogin;
+  document.querySelector(".player-panel").hidden = isLogin;
+  document.querySelector(".history-panel").hidden = isLogin;
+  adminLoginForm.hidden = viewContext.role !== "admin-login";
+  playerLoginForm.hidden = viewContext.role !== "player-login";
+  loginLabel.textContent = viewContext.role === "admin-login" ? "Admin" : "Player";
+  loginTitle.textContent = viewContext.role === "admin-login" ? "Admin login" : "Player login";
+  loginDetail.textContent = viewContext.role === "admin-login"
+    ? "Enter the admin key from your Render environment variable."
+    : "Choose your player seat to open your live player page.";
   controlsPanel.classList.toggle("is-admin-only", !isAdmin);
   adminKeyField.hidden = !isAdmin;
   adminKeyInput.value = getAdminKey();
+  playerConsentField.hidden = !isAdmin;
+  playerConsentInput.value = getPlayerConsentToken(state.activePlayerId);
   adminLink.classList.toggle("is-active", isAdmin);
+  playerLoginLink.classList.toggle("is-active", viewContext.role === "player-login");
+  populatePlayerLogin();
   renderPlayerLinks();
 }
 
@@ -136,10 +189,29 @@ function renderPlayerLinks() {
 
   Array.from({ length: gameSettings.maxPlayers }, (_, index) => index + 1).forEach((playerId) => {
     const link = document.createElement("a");
-    link.href = `/player/${playerId}`;
+    link.href = viewContext.role === "admin" ? "#" : `/player/${playerId}`;
     link.textContent = `P${playerId}`;
     link.className = viewContext.playerId === playerId ? "is-active" : "";
+    if (viewContext.role === "admin") {
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        selectPlayer(playerId);
+      });
+    }
     playerLinks.appendChild(link);
+  });
+}
+
+function populatePlayerLogin() {
+  if (playerLoginSelect.children.length) {
+    return;
+  }
+
+  Array.from({ length: gameSettings.maxPlayers }, (_, index) => index + 1).forEach((playerId) => {
+    const option = document.createElement("option");
+    option.value = playerId;
+    option.textContent = `Player ${playerId}`;
+    playerLoginSelect.appendChild(option);
   });
 }
 
@@ -151,12 +223,66 @@ function saveAdminKey() {
   window.sessionStorage.setItem("lucky7AdminKey", adminKeyInput.value.trim());
 }
 
+function getLoggedInPlayerId() {
+  return Number(window.sessionStorage.getItem("lucky7PlayerId"));
+}
+
+function getPlayerConsentToken(playerId) {
+  return window.sessionStorage.getItem(`lucky7ConsentToken:${playerId}`) || "";
+}
+
+function canControlActivePlayer() {
+  if (viewContext.role === "player") {
+    return true;
+  }
+
+  if (viewContext.role === "admin") {
+    return Boolean(getPlayerConsentToken(getActivePlayer().id));
+  }
+
+  return false;
+}
+
+function savePlayerConsentToken() {
+  window.sessionStorage.setItem(`lucky7ConsentToken:${state.activePlayerId}`, playerConsentInput.value.trim().toUpperCase());
+  render();
+}
+
+function handleAdminLogin(event) {
+  event.preventDefault();
+  window.sessionStorage.setItem("lucky7AdminKey", loginAdminKeyInput.value.trim());
+  window.location.href = "/admin";
+}
+
+function handlePlayerLogin(event) {
+  event.preventDefault();
+  const playerId = Number(playerLoginSelect.value);
+  window.sessionStorage.setItem("lucky7PlayerId", String(playerId));
+  window.location.href = `/player/${playerId}`;
+}
+
 async function initGame() {
   configurePageChrome();
+
+  if (viewContext.role === "admin" && !getAdminKey()) {
+    window.location.replace("/admin-login");
+    return;
+  }
+
+  if (viewContext.role === "player" && getLoggedInPlayerId() !== viewContext.playerId) {
+    window.location.replace("/player-login");
+    return;
+  }
+
+  if (viewContext.role.endsWith("-login")) {
+    return;
+  }
+
   render();
   await loadGameConfig();
   await loadGameSession();
   render();
+  startLiveSync();
 
   if (state.bettingOpen && state.phase === "betting" && !state.roundResolved) {
     syncBetTimerFromDeadline();
@@ -197,6 +323,9 @@ function render() {
   betTimerEl.textContent = state.phase === "staging" ? "Ready" : `${getDisplayedBetSeconds()}s`;
   activePlayerName.textContent = activePlayer.name;
   activePlayerWallet.textContent = `Carried balance: ${formatRupees(activePlayer.walletBalance)}`;
+  consentTokenText.hidden = viewContext.role !== "player";
+  consentTokenText.textContent = `Consent token for admin help: ${activePlayer.consentToken || "----"}`;
+  playerConsentField.querySelector("span").textContent = `Consent token for ${activePlayer.name}`;
   playerLimitText.textContent = `Max purchase per player: ${formatRupees(gameSettings.maxPurchasePerPlayer)}`;
 
   renderLanes();
@@ -321,6 +450,7 @@ function renderBuyCards() {
     button.disabled = state.phase !== "staging"
       || state.roundResolved
       || state.rolling
+      || !canControlActivePlayer()
       || (activePlayer.walletBalance < value && activePlayer.purchasedTotal + value > gameSettings.maxPurchasePerPlayer);
 
     button.addEventListener("click", () => buyCard(value));
@@ -347,7 +477,11 @@ function renderHand() {
     button.type = "button";
     button.className = "card-button";
     button.textContent = formatRupees(card.value);
-    button.disabled = !state.bettingOpen || state.phase !== "betting" || state.roundResolved || state.rolling;
+    button.disabled = !state.bettingOpen
+      || state.phase !== "betting"
+      || state.roundResolved
+      || state.rolling
+      || !canControlActivePlayer();
 
     if (state.selectedCardId === card.id) {
       button.classList.add("is-selected");
@@ -407,7 +541,7 @@ async function buyCard(value) {
   }
 
   await runGameAction("/api/game/actions/buy-card", {
-    playerId: state.activePlayerId,
+    playerId: getActivePlayer().id,
     value
   });
 }
@@ -631,7 +765,8 @@ async function loadGameConfig() {
 async function loadGameSession() {
   try {
     const response = await fetch("/api/game/session", {
-      cache: "no-store"
+      cache: "no-store",
+      headers: getSessionHeaders()
     });
 
     if (!response.ok) {
@@ -644,6 +779,32 @@ async function loadGameSession() {
   } catch (error) {
     sessionHydrated = true;
   }
+}
+
+function getSessionHeaders() {
+  if (viewContext.role === "player") {
+    return {
+      "x-player-id": String(viewContext.playerId)
+    };
+  }
+
+  return {};
+}
+
+function startLiveSync() {
+  window.clearInterval(liveSyncId);
+  liveSyncId = window.setInterval(async () => {
+    if (document.hidden || state.rolling) {
+      return;
+    }
+
+    await loadGameSession();
+    render();
+
+    if (state.bettingOpen && state.phase === "betting" && !state.roundResolved && !state.betTimerId) {
+      startBetTimer();
+    }
+  }, 1000);
 }
 
 function applyGameSession(session) {
@@ -672,6 +833,7 @@ function applyGameSession(session) {
   dieTwo.textContent = session.ui?.dieTwo || "?";
   roundResult.textContent = session.ui?.roundResult || "Staging: buy cards";
   roundDetail.textContent = session.ui?.roundDetail || "Players can buy digital cards now. The owner starts the betting timer when the table is ready.";
+  playerConsentInput.value = getPlayerConsentToken(state.activePlayerId);
 }
 
 async function runGameAction(url, payload = {}) {
@@ -697,6 +859,18 @@ async function postGameAction(url, payload = {}) {
 
   if (adminKey) {
     headers["x-admin-key"] = adminKey;
+  }
+
+  if (viewContext.role === "player") {
+    headers["x-player-id"] = String(viewContext.playerId);
+  }
+
+  if (viewContext.role === "admin" && payload.playerId) {
+    const consentToken = getPlayerConsentToken(payload.playerId);
+
+    if (consentToken) {
+      headers["x-player-consent-token"] = consentToken;
+    }
   }
 
   const response = await fetch(url, {

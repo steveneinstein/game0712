@@ -28,7 +28,7 @@ router.get("/game/config", (req, res) => {
 });
 
 router.get("/game/session", (req, res) => {
-  res.json(updateSession(touchSession));
+  res.json(filterSessionForRequest(updateSession(touchSession), req));
 });
 
 router.delete("/game/session", (req, res) => {
@@ -51,6 +51,53 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+function isAdminRequest(req) {
+  const adminKey = process.env.ADMIN_KEY;
+  return Boolean(adminKey && req.get("x-admin-key") === adminKey);
+}
+
+function filterSessionForRequest(session, req) {
+  const playerId = Number(req.get("x-player-id"));
+  const filtered = JSON.parse(JSON.stringify(session));
+
+  filtered.state.players.forEach((player) => {
+    if (player.id !== playerId) {
+      delete player.consentToken;
+    }
+  });
+
+  return filtered;
+}
+
+function requirePlayerControl(req, res, next) {
+  const playerId = Number(req.body.playerId);
+
+  if (!playerId) {
+    res.status(400).json({ error: "Player id required." });
+    return;
+  }
+
+  if (isAdminRequest(req)) {
+    const session = getSession();
+    const player = session.state.players.find((entry) => entry.id === playerId);
+
+    if (!player || req.get("x-player-consent-token") !== player.consentToken) {
+      res.status(403).json({ error: "Player consent token required for admin control." });
+      return;
+    }
+
+    next();
+    return;
+  }
+
+  if (Number(req.get("x-player-id")) !== playerId) {
+    res.status(403).json({ error: "Player login required." });
+    return;
+  }
+
+  next();
+}
+
 function runAction(res, action) {
   try {
     res.json(updateSession(action));
@@ -63,7 +110,7 @@ router.post("/game/actions/select-player", (req, res) => {
   runAction(res, (session) => selectPlayer(session, req.body.playerId));
 });
 
-router.post("/game/actions/buy-card", (req, res) => {
+router.post("/game/actions/buy-card", requirePlayerControl, (req, res) => {
   runAction(res, (session) => buyCard(session, req.body.playerId, req.body.value));
 });
 
@@ -71,7 +118,7 @@ router.post("/game/actions/start-betting", requireAdmin, (req, res) => {
   runAction(res, startBetting);
 });
 
-router.post("/game/actions/place-bet", (req, res) => {
+router.post("/game/actions/place-bet", requirePlayerControl, (req, res) => {
   runAction(res, (session) => placeBet(session, req.body.playerId, req.body.cardId, req.body.laneId));
 });
 

@@ -8,20 +8,22 @@ const publicDir = path.join(__dirname, "public");
 
 app.use(express.json());
 app.use("/api", apiRoutes);
-app.use(express.static(publicDir));
 
 function sendApp(req, res) {
   res.sendFile(path.join(publicDir, "index.html"));
 }
 
 app.get("/", (req, res) => {
-  res.redirect("/admin-login");
+  res.redirect("/login");
 });
 
+app.get("/login", sendApp);
 app.get("/admin-login", sendApp);
 app.get("/player-login", sendApp);
 app.get("/admin", sendApp);
 app.get("/player/:playerId", sendApp);
+
+app.use(express.static(publicDir));
 
 app.use((req, res) => {
   if (req.path.startsWith("/api/")) {

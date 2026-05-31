@@ -1,9 +1,9 @@
-const CACHE_NAME = "lucky-7-cards-v8";
+const CACHE_NAME = "lucky-7-cards-v12";
 const APP_ASSETS = [
   "./",
   "./index.html",
-  "./style.css?v=8",
-  "./app.js?v=8",
+  "./style.css?v=12",
+  "./app.js?v=12",
   "./manifest.webmanifest",
   "./icon.svg"
 ];

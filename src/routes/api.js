@@ -53,7 +53,12 @@ function requireAdmin(req, res, next) {
 
 function isAdminRequest(req) {
   const adminKey = process.env.ADMIN_KEY;
-  return Boolean(adminKey && req.get("x-admin-key") === adminKey);
+
+  if (!adminKey) {
+    return Boolean(req.get("x-admin-key"));
+  }
+
+  return req.get("x-admin-key") === adminKey;
 }
 
 function filterSessionForRequest(session, req) {

@@ -114,6 +114,13 @@ adminLoginForm.addEventListener("submit", handleAdminLogin);
 playerLoginForm.addEventListener("submit", handlePlayerLogin);
 
 function getViewContext() {
+  if (window.location.pathname === "/" || window.location.pathname === "/login") {
+    return {
+      role: "login",
+      playerId: null
+    };
+  }
+
   if (window.location.pathname === "/admin-login") {
     return {
       role: "admin-login",
@@ -146,10 +153,12 @@ function getViewContext() {
 
 function configurePageChrome() {
   const isAdmin = viewContext.role === "admin";
-  const isLogin = viewContext.role.endsWith("-login");
+  const isLogin = viewContext.role === "login" || viewContext.role.endsWith("-login");
 
   pageEyebrow.textContent = isLogin ? "Secure entry" : isAdmin ? "Admin table" : "Player table";
-  pageTitle.textContent = viewContext.role === "admin-login"
+  pageTitle.textContent = viewContext.role === "login"
+    ? "Lucky 7 Login"
+    : viewContext.role === "admin-login"
     ? "Admin Login"
     : viewContext.role === "player-login"
       ? "Player Login"
@@ -163,18 +172,24 @@ function configurePageChrome() {
     ? "Monitor players and manage table flow"
     : "Buy cards, then place your selected card when betting opens";
   loginPanel.hidden = !isLogin;
-  roleNav.hidden = viewContext.role === "player" || viewContext.role === "player-login";
+  roleNav.hidden = isLogin || viewContext.role === "player";
   document.querySelector(".table-top").hidden = isLogin;
   laneGrid.hidden = isLogin;
   document.querySelector(".player-panel").hidden = isLogin;
   document.querySelector(".history-panel").hidden = isLogin;
-  adminLoginForm.hidden = viewContext.role !== "admin-login";
-  playerLoginForm.hidden = viewContext.role !== "player-login";
-  loginLabel.textContent = viewContext.role === "admin-login" ? "Admin" : "Player";
-  loginTitle.textContent = viewContext.role === "admin-login" ? "Admin login" : "Player login";
+  adminLoginForm.hidden = viewContext.role === "player-login";
+  playerLoginForm.hidden = viewContext.role === "admin-login";
+  loginLabel.textContent = viewContext.role === "admin-login"
+    ? "Admin"
+    : viewContext.role === "player-login" ? "Player" : "Choose role";
+  loginTitle.textContent = viewContext.role === "admin-login"
+    ? "Admin login"
+    : viewContext.role === "player-login" ? "Player login" : "Enter the table";
   loginDetail.textContent = viewContext.role === "admin-login"
     ? "Enter the admin key from your Render environment variable."
-    : "Choose your player seat to open your live player page.";
+    : viewContext.role === "player-login"
+      ? "Choose your player seat to open your live player page."
+      : "Admins enter the table key. Players choose only their assigned seat.";
   controlsPanel.classList.toggle("is-admin-only", !isAdmin);
   adminKeyField.hidden = !isAdmin;
   adminKeyInput.value = getAdminKey();
@@ -267,16 +282,16 @@ async function initGame() {
   configurePageChrome();
 
   if (viewContext.role === "admin" && !getAdminKey()) {
-    window.location.replace("/admin-login");
+    window.location.replace("/login");
     return;
   }
 
   if (viewContext.role === "player" && getLoggedInPlayerId() !== viewContext.playerId) {
-    window.location.replace("/player-login");
+    window.location.replace("/login");
     return;
   }
 
-  if (viewContext.role.endsWith("-login")) {
+  if (viewContext.role === "login" || viewContext.role.endsWith("-login")) {
     return;
   }
 
@@ -796,7 +811,7 @@ function getSessionHeaders() {
 function startLiveSync() {
   window.clearInterval(liveSyncId);
   liveSyncId = window.setInterval(async () => {
-    if (document.hidden || state.rolling) {
+    if (document.hidden || state.rolling || state.selectedCardId) {
       return;
     }
 
@@ -814,6 +829,7 @@ function applyGameSession(session) {
     return;
   }
 
+  const selectedCardId = state.selectedCardId;
   stopBetTimer();
   Object.assign(state, {
     ...session.state,
@@ -829,6 +845,18 @@ function applyGameSession(session) {
 
   if (!Array.isArray(state.history)) {
     state.history = [];
+  }
+
+  const activePlayer = getActivePlayer();
+  const canKeepSelectedCard = selectedCardId
+    && state.bettingOpen
+    && state.phase === "betting"
+    && !state.roundResolved
+    && !state.rolling
+    && activePlayer.hand.some((card) => card.id === selectedCardId);
+
+  if (canKeepSelectedCard) {
+    state.selectedCardId = selectedCardId;
   }
 
   dieOne.textContent = session.ui?.dieOne || "?";

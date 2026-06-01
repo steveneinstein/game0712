@@ -78,6 +78,9 @@ const loginDetail = document.querySelector("#loginDetail");
 const loginForm = document.querySelector("#loginForm");
 const loginUsernameInput = document.querySelector("#loginUsernameInput");
 const loginPasswordInput = document.querySelector("#loginPasswordInput");
+const profileBar = document.querySelector("#profileBar");
+const profileName = document.querySelector("#profileName");
+const logoutBtn = document.querySelector("#logoutBtn");
 
 const state = {
   round: 1,
@@ -110,6 +113,7 @@ resetBtn.addEventListener("click", resetGame);
 adminKeyInput.addEventListener("input", saveAdminKey);
 playerConsentInput.addEventListener("input", savePlayerConsentToken);
 loginForm.addEventListener("submit", handleLogin);
+logoutBtn.addEventListener("click", logout);
 
 function getViewContext() {
   if (window.location.pathname === "/" || window.location.pathname === "/login") {
@@ -171,6 +175,8 @@ function configurePageChrome() {
     : "Buy cards, then place your selected card when betting opens";
   loginPanel.hidden = !isLogin;
   roleNav.hidden = isLogin || viewContext.role === "player";
+  profileBar.hidden = isLogin;
+  profileName.textContent = isAdmin ? "Admin" : viewContext.role === "player" ? `Player ${viewContext.playerId}` : "Guest";
   document.querySelector(".table-top").hidden = isLogin;
   laneGrid.hidden = isLogin;
   document.querySelector(".player-panel").hidden = isLogin;
@@ -224,6 +230,17 @@ function getPlayerAuthToken() {
 
 function getPlayerConsentToken(playerId) {
   return window.sessionStorage.getItem(`lucky7ConsentToken:${playerId}`) || "";
+}
+
+function clearLoginSession() {
+  window.sessionStorage.removeItem("lucky7AdminKey");
+  window.sessionStorage.removeItem("lucky7PlayerId");
+  window.sessionStorage.removeItem("lucky7PlayerToken");
+}
+
+function logout() {
+  clearLoginSession();
+  window.location.replace("/login");
 }
 
 function canControlActivePlayer() {
@@ -285,17 +302,19 @@ async function handleLogin(event) {
 }
 
 async function initGame() {
+  if (viewContext.role === "admin" && !await verifyAdminSession()) {
+    clearLoginSession();
+    window.location.replace("/login");
+    return;
+  }
+
+  if (viewContext.role === "player" && !await verifyPlayerSession()) {
+    clearLoginSession();
+    window.location.replace("/login");
+    return;
+  }
+
   configurePageChrome();
-
-  if (viewContext.role === "admin" && !getAdminKey()) {
-    window.location.replace("/login");
-    return;
-  }
-
-  if (viewContext.role === "player" && (getLoggedInPlayerId() !== viewContext.playerId || !getPlayerAuthToken())) {
-    window.location.replace("/login");
-    return;
-  }
 
   if (viewContext.role === "login" || viewContext.role.endsWith("-login")) {
     return;
@@ -357,6 +376,44 @@ function render() {
   renderHand();
   renderHistory();
   updateControls();
+}
+
+async function verifyAdminSession() {
+  const adminKey = getAdminKey();
+
+  if (!adminKey) {
+    return false;
+  }
+
+  try {
+    const response = await fetch("/api/auth/admin-session", {
+      cache: "no-store",
+      headers: {
+        "x-admin-key": adminKey
+      }
+    });
+
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
+}
+
+async function verifyPlayerSession() {
+  if (getLoggedInPlayerId() !== viewContext.playerId || !getPlayerAuthToken()) {
+    return false;
+  }
+
+  try {
+    const response = await fetch("/api/auth/player-session", {
+      cache: "no-store",
+      headers: getSessionHeaders()
+    });
+
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
 }
 
 function renderLanes() {

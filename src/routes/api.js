@@ -86,6 +86,26 @@ router.post("/auth/player-login", (req, res) => {
   issuePlayerLogin(playerId, res);
 });
 
+router.get("/auth/admin-session", requireAdmin, (req, res) => {
+  res.json({
+    role: "admin"
+  });
+});
+
+router.get("/auth/player-session", (req, res) => {
+  const playerId = Number(req.get("x-player-id"));
+
+  if (!playerId || !isPlayerRequest(req, playerId)) {
+    res.status(401).json({ error: "Player login required." });
+    return;
+  }
+
+  res.json({
+    role: "player",
+    playerId
+  });
+});
+
 function issuePlayerLogin(playerId, res) {
   try {
     const session = updateSession((currentSession) => {

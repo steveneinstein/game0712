@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="/style.css?v=14">
+  <link rel="stylesheet" href="/style.css?v=15">
 </head>
 <body>
   <main class="game-shell">
@@ -35,6 +35,14 @@
           <span>Round</span>
           <strong id="roundNumber">1</strong>
         </article>
+      </section>
+
+      <section class="profile-bar" id="profileBar" hidden>
+        <div>
+          <span>Signed in</span>
+          <strong id="profileName">Guest</strong>
+        </div>
+        <button id="logoutBtn" type="button" class="ghost-btn">Log out</button>
       </section>
     </header>
 
@@ -63,7 +71,7 @@
       </form>
     </section>
 
-    <section class="table-top">
+    <section class="table-top" hidden>
       <div class="dice-stage" aria-live="polite">
         <div class="dice-pair" id="dicePair">
           <div class="die" id="dieOne" aria-label="Die one">?</div>
@@ -96,9 +104,9 @@
       </div>
     </section>
 
-    <section class="lane-grid" id="laneGrid" aria-label="Betting lanes"></section>
+    <section class="lane-grid" id="laneGrid" aria-label="Betting lanes" hidden></section>
 
-    <section class="player-panel">
+    <section class="player-panel" hidden>
       <div class="player-panel-top">
         <div>
           <p class="status-label">Players</p>
@@ -125,7 +133,7 @@
       <div id="playerList" class="player-list" aria-label="Player seats"></div>
     </section>
 
-    <section class="history-panel">
+    <section class="history-panel" hidden>
       <div>
         <p class="status-label">Round log</p>
         <h2>Last rolls</h2>
@@ -134,6 +142,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=14"></script>
+  <script src="/app.js?v=15"></script>
 </body>
 </html>

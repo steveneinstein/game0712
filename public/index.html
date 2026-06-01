@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="/style.css?v=6">
+  <link rel="stylesheet" href="/style.css?v=14">
 </head>
 <body>
   <main class="game-shell">
@@ -39,9 +39,29 @@
     </header>
 
     <nav class="role-nav" aria-label="Game pages">
-      <a href="/admin" id="adminLink">Admin</a>
+      <a href="/admin-login" id="adminLink">Admin</a>
+      <a href="/player-login" id="playerLoginLink">Player login</a>
       <div id="playerLinks" class="player-links"></div>
     </nav>
+
+    <section class="login-panel" id="loginPanel" hidden>
+      <div>
+        <p class="status-label" id="loginLabel">Login</p>
+        <h2 id="loginTitle">Enter game</h2>
+        <p id="loginDetail" class="limit-text">Choose how you want to enter the table.</p>
+      </div>
+      <form id="loginForm" class="login-form">
+        <label>
+          <span>Username</span>
+          <input id="loginUsernameInput" type="text" autocomplete="username" placeholder="admin or player1">
+        </label>
+        <label>
+          <span>Password</span>
+          <input id="loginPasswordInput" type="password" autocomplete="current-password" placeholder="Enter password">
+        </label>
+        <button type="submit" class="primary-btn">Enter game</button>
+      </form>
+    </section>
 
     <section class="table-top">
       <div class="dice-stage" aria-live="polite">
@@ -57,6 +77,14 @@
       </div>
 
       <div class="controls">
+        <label class="admin-key-field" id="adminKeyField">
+          <span>Admin password</span>
+          <input id="adminKeyInput" type="password" autocomplete="current-password" placeholder="Enter admin password">
+        </label>
+        <label class="admin-key-field" id="playerConsentField" hidden>
+          <span>Consent token</span>
+          <input id="playerConsentInput" type="text" autocomplete="off" placeholder="Player token">
+        </label>
         <div class="timer-card" aria-live="polite">
           <span id="timerLabel">Stage</span>
           <strong id="betTimer">Ready</strong>
@@ -83,6 +111,7 @@
           <p class="status-label">Active player</p>
           <h2 id="activePlayerName">Player 1</h2>
           <p id="activePlayerWallet" class="limit-text">Carried balance: Rs 0</p>
+          <p id="consentTokenText" class="limit-text" hidden>Consent token: ----</p>
         </div>
         <div id="buyCardPanel" class="buy-card-panel" aria-label="Buy digital cards"></div>
       </div>
@@ -105,6 +134,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=6"></script>
+  <script src="/app.js?v=14"></script>
 </body>
 </html>

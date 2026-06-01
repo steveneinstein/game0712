@@ -258,6 +258,8 @@ function nextRound(session) {
 
 function resetGame(session) {
   const savedPlayers = session.state.players.map((player) => ({
+    consentToken: player.consentToken,
+    authToken: player.authToken,
     winnings: player.winnings,
     purchasedTotal: player.purchasedTotal,
     walletBalance: player.walletBalance + getPlayerRoundBet(player),
@@ -276,6 +278,8 @@ function resetGame(session) {
     player.purchasedTotal = savedPlayer.purchasedTotal;
     player.walletBalance = savedPlayer.walletBalance;
     player.hand = savedPlayer.hand;
+    player.consentToken = savedPlayer.consentToken || player.consentToken;
+    player.authToken = savedPlayer.authToken || player.authToken;
   });
 
   return fresh;

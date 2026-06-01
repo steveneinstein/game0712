@@ -57,7 +57,7 @@ button {
 
 .game-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 20px;
   align-items: end;
   padding: 24px;
@@ -123,6 +123,28 @@ h2 {
   margin-top: 5px;
   color: var(--gold);
   font-size: 2rem;
+}
+
+.profile-bar {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+
+.profile-bar span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.profile-bar strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--gold);
+  font-size: 1.05rem;
 }
 
 .role-nav {
@@ -922,6 +944,10 @@ button:disabled {
   .hand-panel,
   .history-panel {
     grid-template-columns: 1fr;
+  }
+
+  .profile-bar {
+    justify-items: stretch;
   }
 
   .player-panel-top,

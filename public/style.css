@@ -401,6 +401,8 @@ button:disabled {
     inset 0 0 0 1px rgba(255, 244, 178, 0.24),
     inset 0 0 44px rgba(0, 0, 0, 0.46),
     0 22px 74px rgba(0, 0, 0, 0.42);
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
 .lane::before {
@@ -429,24 +431,50 @@ button:disabled {
   outline-offset: 3px;
 }
 
+.lane.is-dimmed-lane {
+  opacity: 0.32;
+  filter: grayscale(1) brightness(0.52) saturate(0.15);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 0 34px rgba(0, 0, 0, 0.64),
+    0 14px 42px rgba(0, 0, 0, 0.34);
+}
+
+.lane.is-dimmed-lane::after {
+  opacity: 0.08;
+}
+
 .lane.is-winner {
   animation: pulseWinner 900ms ease-in-out 2;
 }
 
 .lane.is-winning-lane {
-  outline: 4px solid var(--gold);
-  outline-offset: 4px;
+  opacity: 1;
+  border-color: #fff0a8;
+  outline: 5px solid var(--gold);
+  outline-offset: 5px;
+  filter: saturate(1.2) brightness(1.08);
   box-shadow:
-    inset 0 0 0 1px rgba(255, 244, 178, 0.34),
-    inset 0 0 52px rgba(255, 211, 106, 0.2),
-    0 0 0 5px rgba(255, 211, 106, 0.16),
-    0 0 56px color-mix(in srgb, var(--lane-color), white 22%),
+    inset 0 0 0 2px rgba(255, 244, 178, 0.6),
+    inset 0 0 68px rgba(255, 211, 106, 0.38),
+    0 0 0 6px rgba(255, 211, 106, 0.18),
+    0 0 68px rgba(255, 211, 106, 0.52),
     0 24px 80px rgba(0, 0, 0, 0.46);
+}
+
+.lane.is-winning-lane::after {
+  opacity: 0.42;
+  background:
+    linear-gradient(110deg, transparent 0 28%, rgba(255, 255, 255, 0.22) 35%, transparent 42%),
+    radial-gradient(circle at 50% 64%, rgba(255, 211, 106, 0.62), transparent 38%);
 }
 
 @keyframes pulseWinner {
   50% {
-    box-shadow: 0 0 0 5px rgba(255, 211, 106, 0.22), 0 0 46px color-mix(in srgb, var(--lane-color), white 18%);
+    box-shadow:
+      0 0 0 8px rgba(255, 211, 106, 0.22),
+      0 0 72px rgba(255, 211, 106, 0.6);
   }
 }
 
@@ -743,6 +771,26 @@ button:disabled {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
+.lane-action {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid rgba(255, 211, 106, 0.58);
+  border-radius: 8px;
+  color: #1b1304;
+  background: linear-gradient(135deg, #fff3b8, var(--gold) 52%, var(--gold-dark));
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 950;
+  touch-action: manipulation;
+}
+
+.lane-action:disabled {
+  color: rgba(255, 249, 230, 0.72);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
 .placed-card,
 .rival-card {
   display: flex;
@@ -959,17 +1007,81 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .lane-grid,
   .history-list {
     grid-template-columns: 1fr;
   }
 
+  .lane-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
   .lane {
-    min-height: 560px;
+    min-height: 430px;
+    padding: 12px;
   }
 
   .lane-top {
-    min-height: 292px;
+    gap: 8px;
+    min-height: 210px;
+  }
+
+  .lane h2 {
+    font-size: clamp(1.2rem, 4.2vw, 2rem);
+  }
+
+  .lane-symbol {
+    font-size: clamp(3.2rem, 12vw, 5.4rem);
+    -webkit-text-stroke-width: 1px;
+  }
+
+  .lane-flourish,
+  .lane-rule {
+    width: min(120px, 86%);
+    height: 16px;
+    margin-top: 4px;
+  }
+
+  .lane-art {
+    right: 4px;
+    bottom: 118px;
+    left: 4px;
+    transform: scale(0.62);
+    transform-origin: bottom center;
+  }
+
+  .lane-drop {
+    gap: 8px;
+    min-height: 130px;
+    padding: 8px;
+  }
+
+  .lane-score-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .lane-score {
+    padding: 7px;
+  }
+
+  .lane-score strong {
+    font-size: 1rem;
+  }
+
+  .placed-card,
+  .rival-card {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px;
+    font-size: 0.78rem;
+  }
+
+  .lane-action {
+    min-height: 48px;
+    padding: 8px 6px;
+    font-size: 0.76rem;
   }
 
   .controls,
@@ -1000,19 +1112,52 @@ button:disabled {
   }
 
   .lane {
-    min-height: 520px;
+    min-height: 360px;
+  }
+
+  .lane-grid {
+    gap: 6px;
+  }
+
+  .lane-top {
+    min-height: 172px;
+  }
+
+  .lane h2 {
+    font-size: clamp(0.92rem, 4vw, 1.25rem);
+  }
+
+  .lane-label,
+  .card-label {
+    font-size: 0.58rem;
+    letter-spacing: 0.04em;
   }
 
   .lane-symbol {
-    font-size: clamp(4.8rem, 28vw, 7rem);
+    font-size: clamp(2.2rem, 14vw, 3.2rem);
   }
 
   .lane-art {
-    right: 8px;
-    bottom: 122px;
-    left: 8px;
-    transform: scale(0.88);
-    transform-origin: bottom center;
+    bottom: 110px;
+    transform: scale(0.46);
+  }
+
+  .lane-corner {
+    width: 24px;
+    height: 24px;
+  }
+
+  .lane::before {
+    inset: 5px;
+  }
+
+  .bet-stack {
+    max-height: 86px;
+  }
+
+  .lane-action {
+    min-height: 44px;
+    font-size: 0.68rem;
   }
 
   .cash-front {

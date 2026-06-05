@@ -84,6 +84,7 @@ function buyCard(session, playerId, value) {
   const state = session.state;
   const player = getPlayer(state, playerId);
   const cardValue = Number(value);
+  const rawValue = String(value).trim();
 
   if (!player) {
     throw new Error("Player not found.");
@@ -93,8 +94,12 @@ function buyCard(session, playerId, value) {
     throw new Error("Cards can only be bought during staging.");
   }
 
-  if (!settings.cardDenominations.includes(cardValue)) {
-    throw new Error("Invalid card denomination.");
+  if (!/^\d+$/.test(rawValue) || !Number.isInteger(cardValue) || cardValue <= 0) {
+    throw new Error("Enter a whole rupee amount.");
+  }
+
+  if (cardValue > settings.maxPurchasePerPlayer) {
+    throw new Error(`Card amount cannot exceed ${formatRupees(settings.maxPurchasePerPlayer)}.`);
   }
 
   if (player.walletBalance >= cardValue) {

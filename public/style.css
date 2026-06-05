@@ -909,6 +909,48 @@ button:disabled {
   justify-content: flex-end;
 }
 
+.custom-buy {
+  display: flex;
+  flex: 1 1 min(360px, 100%);
+  min-width: min(360px, 100%);
+  gap: 8px;
+  align-items: end;
+}
+
+.custom-buy label {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  min-width: 120px;
+}
+
+.custom-buy span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.custom-buy input {
+  min-height: 46px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 211, 106, 0.32);
+  border-radius: 8px;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.28);
+  font: inherit;
+  font-weight: 900;
+  font-size: 1.08rem;
+  outline: none;
+}
+
+.custom-buy input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(255, 211, 106, 0.14);
+}
+
 .buy-card {
   min-height: 46px;
   min-width: 86px;
@@ -1086,13 +1128,15 @@ button:disabled {
 
   .controls,
   .card-hand,
-  .buy-card-panel {
+  .buy-card-panel,
+  .custom-buy {
     justify-content: stretch;
   }
 
   .controls button,
   .card-button,
-  .buy-card {
+  .buy-card,
+  .custom-buy button {
     flex: 1;
   }
 }
@@ -1174,6 +1218,10 @@ button:disabled {
 
   .player-money-row {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .custom-buy {
+    width: 100%;
   }
 
   .dice-stage {

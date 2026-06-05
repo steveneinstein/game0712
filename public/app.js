@@ -381,7 +381,7 @@ function render() {
   timerLabel.textContent = state.phase === "staging" ? "Stage" : "Bet time";
   betTimerEl.textContent = state.phase === "staging" ? "Ready" : `${getDisplayedBetSeconds()}s`;
   activePlayerName.textContent = activePlayer.name;
-  activePlayerWallet.textContent = `Carried balance: ${formatRupees(activePlayer.walletBalance)}`;
+  activePlayerWallet.textContent = `Wallet: ${formatRupees(activePlayer.walletBalance)} | Buy left: ${formatRupees(getPlayerBuyLimitLeft(activePlayer))}`;
   consentTokenText.hidden = viewContext.role !== "player";
   consentTokenText.textContent = `Consent token for admin help: ${activePlayer.consentToken || "----"}`;
   playerConsentField.querySelector("span").textContent = `Consent token for ${activePlayer.name}`;
@@ -535,7 +535,8 @@ function renderPlayers() {
       <strong>${formatRupees(getPlayerRoundBet(player))}</strong>
       <div class="player-money-row">
         <small><em>Bought</em>${formatRupees(player.purchasedTotal)}</small>
-        <small><em>Remaining</em>${formatRupees(getPlayerRemainingMoney(player))}</small>
+        <small><em>Wallet</em>${formatRupees(player.walletBalance)}</small>
+        <small><em>Cards</em>${formatRupees(getPlayerHandTotal(player))}</small>
         <small><em>Won</em>${formatRupees(player.winnings)}</small>
         <small><em>Total</em>${formatRupees(getPlayerTotalMoney(player))}</small>
       </div>
@@ -553,7 +554,49 @@ function renderPlayers() {
 
 function renderBuyCards() {
   const activePlayer = getActivePlayer();
+  const canBuyNow = state.phase === "staging"
+    && !state.roundResolved
+    && !state.rolling
+    && canControlActivePlayer();
   buyCardPanel.innerHTML = "";
+
+  const customWrap = document.createElement("form");
+  const maxCustomAmount = getMaxBuyAmount(activePlayer);
+  customWrap.className = "custom-buy";
+  customWrap.innerHTML = `
+    <label>
+      <span>Amount</span>
+      <input type="number" inputmode="numeric" min="1" max="${maxCustomAmount}" step="1" placeholder="${maxCustomAmount > 0 ? `1-${maxCustomAmount}` : "Max 0"}">
+    </label>
+    <button type="submit" class="buy-card">Buy</button>
+  `;
+
+  const input = customWrap.querySelector("input");
+  const customBuyButton = customWrap.querySelector("button");
+  input.disabled = !canBuyNow || maxCustomAmount <= 0;
+  customBuyButton.disabled = !canBuyNow || maxCustomAmount <= 0;
+  input.addEventListener("input", () => {
+    input.value = input.value.replace(/\D/g, "");
+  });
+  customWrap.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const amount = Number(input.value);
+
+    if (!Number.isInteger(amount) || amount <= 0) {
+      roundResult.textContent = "Enter whole rupees";
+      roundDetail.textContent = "Use a whole rupee amount with no decimals.";
+      return;
+    }
+
+    if (amount > maxCustomAmount) {
+      roundResult.textContent = "Amount too high";
+      roundDetail.textContent = `This player can buy or convert up to ${formatRupees(maxCustomAmount)} right now.`;
+      return;
+    }
+
+    buyCard(amount);
+  });
+  buyCardPanel.appendChild(customWrap);
 
   getCardDenominations().forEach((value) => {
     const button = document.createElement("button");
@@ -565,10 +608,7 @@ function renderBuyCards() {
     button.title = canUseBalance
       ? `Convert ${formatRupees(value)} from carried balance into a digital card.`
       : `Buy a new ${formatRupees(value)} digital card.`;
-    button.disabled = state.phase !== "staging"
-      || state.roundResolved
-      || state.rolling
-      || !canControlActivePlayer()
+    button.disabled = !canBuyNow
       || (activePlayer.walletBalance < value && activePlayer.purchasedTotal + value > gameSettings.maxPurchasePerPlayer);
 
     button.addEventListener("click", () => buyCard(value));
@@ -849,12 +889,24 @@ function getPlayerLaneBet(player, laneId) {
   return player.bets[laneId].reduce((sum, card) => sum + card.value, 0);
 }
 
+function getPlayerHandTotal(player) {
+  return player.hand.reduce((sum, card) => sum + card.value, 0);
+}
+
 function getPlayerRemainingMoney(player) {
-  return player.walletBalance + player.hand.reduce((sum, card) => sum + card.value, 0);
+  return player.walletBalance + getPlayerHandTotal(player);
 }
 
 function getPlayerTotalMoney(player) {
   return getPlayerRemainingMoney(player) + player.winnings;
+}
+
+function getPlayerBuyLimitLeft(player) {
+  return Math.max(0, gameSettings.maxPurchasePerPlayer - player.purchasedTotal);
+}
+
+function getMaxBuyAmount(player) {
+  return Math.floor(Math.max(player.walletBalance, getPlayerBuyLimitLeft(player)));
 }
 
 function randomDie() {
@@ -1022,7 +1074,7 @@ async function postGameAction(url, payload = {}) {
 }
 
 function formatRupees(value) {
-  return `Rs ${value}`;
+  return `Rs ${Math.floor(Number(value) || 0)}`;
 }
 
 function getCardDenominations() {

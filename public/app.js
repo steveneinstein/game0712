@@ -113,6 +113,7 @@ resetBtn.addEventListener("click", resetGame);
 adminKeyInput.addEventListener("input", saveAdminKey);
 playerConsentInput.addEventListener("input", savePlayerConsentToken);
 loginForm.addEventListener("submit", handleLogin);
+playerLoginLink.addEventListener("click", confirmPlayerLoginNavigation);
 logoutBtn.addEventListener("click", logout);
 
 function getViewContext() {
@@ -239,8 +240,24 @@ function clearLoginSession() {
 }
 
 function logout() {
+  const profileLabel = viewContext.role === "admin" ? "admin" : `player ${viewContext.playerId}`;
+
+  if (!window.confirm(`Log out of ${profileLabel}?`)) {
+    return;
+  }
+
   clearLoginSession();
   window.location.replace("/login");
+}
+
+function confirmPlayerLoginNavigation(event) {
+  if (viewContext.role !== "admin" && viewContext.role !== "player") {
+    return;
+  }
+
+  if (!window.confirm("Leave this profile and open player login?")) {
+    event.preventDefault();
+  }
 }
 
 function canControlActivePlayer() {
@@ -422,6 +439,16 @@ function renderLanes() {
   lanes.forEach((lane) => {
     const laneTotal = getLaneTotal(lane.id);
     const lanePlayers = getLanePlayers(lane.id);
+    const activePlayer = getActivePlayer();
+    const selectedCard = activePlayer.hand.find((entry) => entry.id === state.selectedCardId);
+    const canPlaceCard = Boolean(
+      selectedCard
+      && state.bettingOpen
+      && state.phase === "betting"
+      && !state.roundResolved
+      && !state.rolling
+      && canControlActivePlayer()
+    );
     const laneEl = document.createElement("article");
     laneEl.className = "lane";
     laneEl.style.setProperty("--lane-color", lane.color);
@@ -432,6 +459,10 @@ function renderLanes() {
 
     if (state.winningLaneId === lane.id) {
       laneEl.classList.add("is-winning-lane");
+    }
+
+    if (state.roundResolved && state.winningLaneId && state.winningLaneId !== lane.id) {
+      laneEl.classList.add("is-dimmed-lane");
     }
 
     laneEl.innerHTML = `
@@ -468,9 +499,16 @@ function renderLanes() {
         <div class="bet-stack">
           ${lanePlayers.length ? lanePlayers.map((entry) => `<div class="placed-card"><span>${entry.name}</span><strong>${formatRupees(entry.total)}</strong></div>`).join("") : "<div class=\"placed-card\"><span>No bets yet</span><strong>-</strong></div>"}
         </div>
+        <button type="button" class="lane-action" ${canPlaceCard ? "" : "disabled"}>
+          ${selectedCard ? `Place ${formatRupees(selectedCard.value)}` : "Select card"}
+        </button>
       </div>
     `;
 
+    laneEl.querySelector(".lane-action").addEventListener("click", (event) => {
+      event.stopPropagation();
+      placeSelectedCard(lane.id);
+    });
     laneEl.addEventListener("click", () => placeSelectedCard(lane.id));
     laneGrid.appendChild(laneEl);
   });

@@ -1,7 +1,7 @@
 {
-  "name": "Lucky 7 Cards",
+  "name": "Lucky 7 Wallet",
   "short_name": "Lucky 7",
-  "description": "A fast dice-and-card betting game built around Below 7, Exact 7, and Above 7 outcomes.",
+  "description": "A fast dice-and-wallet betting game built around Below 7, Exact 7, and Above 7 outcomes.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#09111f",

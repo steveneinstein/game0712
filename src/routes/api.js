@@ -8,6 +8,7 @@ const {
   buyCard,
   startBetting,
   placeBet,
+  removeBet,
   rollAndResolve,
   nextRound,
   resetGame
@@ -253,7 +254,11 @@ router.post("/game/actions/start-betting", requireAdmin, (req, res) => {
 });
 
 router.post("/game/actions/place-bet", requirePlayerControl, (req, res) => {
-  runAction(req, res, (session) => placeBet(session, req.body.playerId, req.body.cardId, req.body.laneId));
+  runAction(req, res, (session) => placeBet(session, req.body.playerId, req.body.amount, req.body.laneId));
+});
+
+router.post("/game/actions/remove-bet", requirePlayerControl, (req, res) => {
+  runAction(req, res, (session) => removeBet(session, req.body.playerId, req.body.laneId));
 });
 
 router.post("/game/actions/roll", requireAdmin, (req, res) => {

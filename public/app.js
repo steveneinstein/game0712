@@ -101,6 +101,10 @@ const state = {
 const viewContext = getViewContext();
 let sessionHydrated = false;
 let liveSyncId = null;
+const inputDrafts = {
+  walletAdds: {},
+  laneBets: {}
+};
 
 initGame();
 registerServiceWorker();
@@ -449,6 +453,8 @@ function renderLanes() {
       && activePlayer.walletBalance > 0
     );
     const canRemoveBet = Boolean(canBet && activePlayerLaneBet > 0);
+    const laneBetDraftKey = getLaneBetDraftKey(activePlayer.id, lane.id);
+    const laneBetDraftValue = inputDrafts.laneBets[laneBetDraftKey] || "";
     const laneEl = document.createElement("article");
     laneEl.className = "lane";
     laneEl.style.setProperty("--lane-color", lane.color);
@@ -502,7 +508,7 @@ function renderLanes() {
         <form class="lane-bet-form">
           <label>
             <span>Your bet${activePlayerLaneBet > 0 ? `: ${formatRupees(activePlayerLaneBet)}` : ""}</span>
-            <input type="number" inputmode="numeric" min="1" max="${activePlayer.walletBalance}" step="1" placeholder="${activePlayer.walletBalance > 0 ? `1-${activePlayer.walletBalance}` : "Wallet 0"}" ${canBet ? "" : "disabled"}>
+            <input type="number" inputmode="numeric" min="1" max="${activePlayer.walletBalance}" step="1" value="${escapeAttribute(laneBetDraftValue)}" placeholder="${activePlayer.walletBalance > 0 ? `1-${activePlayer.walletBalance}` : "Wallet 0"}" ${canBet ? "" : "disabled"}>
           </label>
           <button type="submit" class="lane-action" ${canBet ? "" : "disabled"}>Place</button>
           <button type="button" class="lane-remove" ${canRemoveBet ? "" : "disabled"}>Remove</button>
@@ -514,6 +520,7 @@ function renderLanes() {
     const betInput = betForm.querySelector("input");
     betInput.addEventListener("input", () => {
       betInput.value = betInput.value.replace(/\D/g, "");
+      inputDrafts.laneBets[laneBetDraftKey] = betInput.value;
     });
     betForm.addEventListener("submit", (event) => {
       event.preventDefault();
@@ -574,11 +581,13 @@ function renderBuyCards() {
 
   const customWrap = document.createElement("form");
   const maxCustomAmount = getMaxBuyAmount(activePlayer);
+  const walletDraftKey = getWalletDraftKey(activePlayer.id);
+  const walletDraftValue = inputDrafts.walletAdds[walletDraftKey] || "";
   customWrap.className = "custom-buy";
   customWrap.innerHTML = `
     <label>
       <span>Add to wallet</span>
-      <input type="number" inputmode="numeric" min="1" max="${maxCustomAmount}" step="1" placeholder="${maxCustomAmount > 0 ? `1-${maxCustomAmount}` : "Max 0"}">
+      <input type="number" inputmode="numeric" min="1" max="${maxCustomAmount}" step="1" value="${escapeAttribute(walletDraftValue)}" placeholder="${maxCustomAmount > 0 ? `1-${maxCustomAmount}` : "Max 0"}">
     </label>
     <button type="submit" class="buy-card">Add</button>
   `;
@@ -589,6 +598,7 @@ function renderBuyCards() {
   customBuyButton.disabled = !canBuyNow || maxCustomAmount <= 0;
   input.addEventListener("input", () => {
     input.value = input.value.replace(/\D/g, "");
+    inputDrafts.walletAdds[walletDraftKey] = input.value;
   });
   customWrap.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -666,10 +676,14 @@ async function buyCard(value) {
     return;
   }
 
-  await runGameAction("/api/game/actions/buy-card", {
+  const success = await runGameAction("/api/game/actions/buy-card", {
     playerId: getActivePlayer().id,
     value
   });
+
+  if (success) {
+    delete inputDrafts.walletAdds[getWalletDraftKey(getActivePlayer().id)];
+  }
 }
 
 async function startBetting() {
@@ -705,11 +719,15 @@ async function placeLaneBet(laneId, value) {
     return;
   }
 
-  await runGameAction("/api/game/actions/place-bet", {
+  const success = await runGameAction("/api/game/actions/place-bet", {
     playerId: activePlayer.id,
     amount,
     laneId
   });
+
+  if (success) {
+    delete inputDrafts.laneBets[getLaneBetDraftKey(activePlayer.id, laneId)];
+  }
 }
 
 async function removeLaneBet(laneId) {
@@ -719,10 +737,14 @@ async function removeLaneBet(laneId) {
     return;
   }
 
-  await runGameAction("/api/game/actions/remove-bet", {
+  const success = await runGameAction("/api/game/actions/remove-bet", {
     playerId: activePlayer.id,
     laneId
   });
+
+  if (success) {
+    delete inputDrafts.laneBets[getLaneBetDraftKey(activePlayer.id, laneId)];
+  }
 }
 
 async function rollDice() {
@@ -902,6 +924,14 @@ function getMaxBuyAmount(player) {
   return Math.floor(getPlayerBuyLimitLeft(player));
 }
 
+function getWalletDraftKey(playerId) {
+  return String(playerId);
+}
+
+function getLaneBetDraftKey(playerId, laneId) {
+  return `${playerId}:${laneId}`;
+}
+
 function randomDie() {
   return Math.floor(Math.random() * 6) + 1;
 }
@@ -1009,9 +1039,11 @@ async function runGameAction(url, payload = {}) {
     if (state.bettingOpen && state.phase === "betting" && !state.roundResolved) {
       startBetTimer();
     }
+    return true;
   } catch (error) {
     roundResult.textContent = "Action failed";
     roundDetail.textContent = error.message;
+    return false;
   }
 }
 
@@ -1055,6 +1087,14 @@ async function postGameAction(url, payload = {}) {
 
 function formatRupees(value) {
   return `Rs ${Math.floor(Number(value) || 0)}`;
+}
+
+function escapeAttribute(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function registerServiceWorker() {

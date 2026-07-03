@@ -188,7 +188,7 @@ function configurePageChrome() {
   loginLabel.textContent = "Login";
   loginTitle.textContent = "Enter the table";
   loginDetail.textContent = "Use admin credentials or a player username such as player1.";
-  controlsPanel.classList.toggle("is-admin-only", !isAdmin);
+  controlsPanel.classList.remove("is-admin-only");
   adminKeyField.hidden = !isAdmin;
   adminKeyInput.value = getAdminKey();
   playerConsentField.hidden = !isAdmin;
@@ -345,15 +345,7 @@ async function initGame() {
   await loadGameSession();
   render();
   startLiveSync();
-
-  if (state.bettingOpen && state.phase === "betting" && !state.roundResolved) {
-    syncBetTimerFromDeadline();
-    if (state.betSecondsLeft === 0 && viewContext.role === "admin") {
-      rollDice();
-    } else {
-      startBetTimer();
-    }
-  }
+  reconcileBetTimer();
 }
 
 function createPlayers() {
@@ -376,13 +368,14 @@ function createEmptyBets() {
 }
 
 function render() {
+  const focusedDraftInput = getFocusedDraftInput();
   const activePlayer = getActivePlayer();
 
   activePlayersEl.textContent = state.players.length;
   tablePotEl.textContent = formatRupees(getTablePot());
   roundNumberEl.textContent = state.round;
   timerLabel.textContent = state.phase === "staging" ? "Stage" : "Bet time";
-  betTimerEl.textContent = state.phase === "staging" ? "Ready" : `${getDisplayedBetSeconds()}s`;
+  updateBetTimerDisplay();
   activePlayerName.textContent = activePlayer.name;
   activePlayerWallet.textContent = `Wallet: ${formatRupees(activePlayer.walletBalance)} | Add left: ${formatRupees(getPlayerBuyLimitLeft(activePlayer))}`;
   consentTokenText.hidden = viewContext.role !== "player";
@@ -396,6 +389,7 @@ function render() {
   renderHand();
   renderHistory();
   updateControls();
+  restoreFocusedDraftInput(focusedDraftInput);
 }
 
 async function verifyAdminSession() {
@@ -508,7 +502,7 @@ function renderLanes() {
         <form class="lane-bet-form">
           <label>
             <span>Your bet${activePlayerLaneBet > 0 ? `: ${formatRupees(activePlayerLaneBet)}` : ""}</span>
-            <input type="number" inputmode="numeric" min="1" max="${activePlayer.walletBalance}" step="1" value="${escapeAttribute(laneBetDraftValue)}" placeholder="${activePlayer.walletBalance > 0 ? `1-${activePlayer.walletBalance}` : "Wallet 0"}" ${canBet ? "" : "disabled"}>
+            <input type="text" inputmode="numeric" pattern="[0-9]*" min="1" max="${activePlayer.walletBalance}" step="1" value="${escapeAttribute(laneBetDraftValue)}" data-draft-kind="laneBet" data-draft-key="${escapeAttribute(laneBetDraftKey)}" placeholder="${activePlayer.walletBalance > 0 ? `1-${activePlayer.walletBalance}` : "Wallet 0"}" ${canBet ? "" : "disabled"}>
           </label>
           <button type="submit" class="lane-action" ${canBet ? "" : "disabled"}>Place</button>
           <button type="button" class="lane-remove" ${canRemoveBet ? "" : "disabled"}>Remove</button>
@@ -587,7 +581,7 @@ function renderBuyCards() {
   customWrap.innerHTML = `
     <label>
       <span>Add to wallet</span>
-      <input type="number" inputmode="numeric" min="1" max="${maxCustomAmount}" step="1" value="${escapeAttribute(walletDraftValue)}" placeholder="${maxCustomAmount > 0 ? `1-${maxCustomAmount}` : "Max 0"}">
+      <input type="text" inputmode="numeric" pattern="[0-9]*" min="1" max="${maxCustomAmount}" step="1" value="${escapeAttribute(walletDraftValue)}" data-draft-kind="walletAdd" data-draft-key="${escapeAttribute(walletDraftKey)}" placeholder="${maxCustomAmount > 0 ? `1-${maxCustomAmount}` : "Max 0"}">
     </label>
     <button type="submit" class="buy-card">Add</button>
   `;
@@ -683,6 +677,7 @@ async function buyCard(value) {
 
   if (success) {
     delete inputDrafts.walletAdds[getWalletDraftKey(getActivePlayer().id)];
+    render();
   }
 }
 
@@ -696,7 +691,7 @@ async function startBetting() {
   }
 
   await runGameAction("/api/game/actions/start-betting");
-  startBetTimer();
+  reconcileBetTimer();
 }
 
 async function placeLaneBet(laneId, value) {
@@ -727,6 +722,7 @@ async function placeLaneBet(laneId, value) {
 
   if (success) {
     delete inputDrafts.laneBets[getLaneBetDraftKey(activePlayer.id, laneId)];
+    render();
   }
 }
 
@@ -744,6 +740,7 @@ async function removeLaneBet(laneId) {
 
   if (success) {
     delete inputDrafts.laneBets[getLaneBetDraftKey(activePlayer.id, laneId)];
+    render();
   }
 }
 
@@ -828,23 +825,68 @@ async function resetGame() {
 
 function startBetTimer() {
   stopBetTimer();
+  syncBetTimerFromDeadline();
+  updateBetTimerDisplay();
+
   state.betTimerId = window.setInterval(() => {
-    if (!state.bettingOpen || state.phase !== "betting" || state.rolling || state.roundResolved) {
+    if (!shouldRunBetTimer()) {
       stopBetTimer();
+      updateBetTimerDisplay();
       return;
     }
 
     syncBetTimerFromDeadline();
-    betTimerEl.textContent = `${state.betSecondsLeft}s`;
+    updateBetTimerDisplay();
 
     if (state.betSecondsLeft === 0) {
+      stopBetTimer();
+
       if (viewContext.role === "admin") {
         rollDice();
       } else {
-        loadGameSession().then(render);
+        loadGameSession().then(() => {
+          render();
+          reconcileBetTimer();
+        });
       }
     }
   }, 1000);
+}
+
+function reconcileBetTimer() {
+  syncBetTimerFromDeadline();
+  updateBetTimerDisplay();
+
+  if (!shouldRunBetTimer()) {
+    stopBetTimer();
+    return;
+  }
+
+  if (state.betSecondsLeft === 0) {
+    stopBetTimer();
+
+    if (viewContext.role === "admin") {
+      rollDice();
+    } else {
+      loadGameSession().then(() => {
+        render();
+        reconcileBetTimer();
+      });
+    }
+    return;
+  }
+
+  if (!state.betTimerId) {
+    startBetTimer();
+  }
+}
+
+function shouldRunBetTimer() {
+  return Boolean(state.bettingOpen && state.phase === "betting" && !state.rolling && !state.roundResolved);
+}
+
+function updateBetTimerDisplay() {
+  betTimerEl.textContent = state.phase === "staging" ? "Ready" : `${getDisplayedBetSeconds()}s`;
 }
 
 function syncBetTimerFromDeadline() {
@@ -932,6 +974,48 @@ function getLaneBetDraftKey(playerId, laneId) {
   return `${playerId}:${laneId}`;
 }
 
+function getFocusedDraftInput() {
+  const activeElement = document.activeElement;
+
+  if (!activeElement || activeElement.tagName !== "INPUT" || !activeElement.dataset.draftKind) {
+    return null;
+  }
+
+  return {
+    kind: activeElement.dataset.draftKind,
+    key: activeElement.dataset.draftKey,
+    selectionStart: activeElement.selectionStart,
+    selectionEnd: activeElement.selectionEnd
+  };
+}
+
+function restoreFocusedDraftInput(focusedDraftInput) {
+  if (!focusedDraftInput) {
+    return;
+  }
+
+  const selector = `input[data-draft-kind="${cssEscape(focusedDraftInput.kind)}"][data-draft-key="${cssEscape(focusedDraftInput.key)}"]`;
+  const input = document.querySelector(selector);
+
+  if (!input || input.disabled) {
+    return;
+  }
+
+  input.focus({ preventScroll: true });
+
+  if (focusedDraftInput.selectionStart !== null && focusedDraftInput.selectionEnd !== null) {
+    input.setSelectionRange(focusedDraftInput.selectionStart, focusedDraftInput.selectionEnd);
+  }
+}
+
+function cssEscape(value) {
+  if (window.CSS && typeof window.CSS.escape === "function") {
+    return window.CSS.escape(String(value));
+  }
+
+  return String(value).replace(/["\\]/g, "\\$&");
+}
+
 function randomDie() {
   return Math.floor(Math.random() * 6) + 1;
 }
@@ -994,10 +1078,7 @@ function startLiveSync() {
 
     await loadGameSession();
     render();
-
-    if (state.bettingOpen && state.phase === "betting" && !state.roundResolved && !state.betTimerId) {
-      startBetTimer();
-    }
+    reconcileBetTimer();
   }, 1000);
 }
 
@@ -1037,7 +1118,7 @@ async function runGameAction(url, payload = {}) {
     render();
 
     if (state.bettingOpen && state.phase === "betting" && !state.roundResolved) {
-      startBetTimer();
+      reconcileBetTimer();
     }
     return true;
   } catch (error) {

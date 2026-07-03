@@ -31,8 +31,7 @@ let lanes = [
 let gameSettings = {
   betTimeSeconds: 15,
   maxPlayers: 10,
-  maxPurchasePerPlayer: 1000,
-  cardDenominations: [10, 50, 100, 200, 500]
+  maxPurchasePerPlayer: 1000
 };
 
 const laneGrid = document.querySelector("#laneGrid");
@@ -102,6 +101,10 @@ const state = {
 const viewContext = getViewContext();
 let sessionHydrated = false;
 let liveSyncId = null;
+const inputDrafts = {
+  walletAdds: {},
+  laneBets: {}
+};
 
 initGame();
 registerServiceWorker();
@@ -113,6 +116,7 @@ resetBtn.addEventListener("click", resetGame);
 adminKeyInput.addEventListener("input", saveAdminKey);
 playerConsentInput.addEventListener("input", savePlayerConsentToken);
 loginForm.addEventListener("submit", handleLogin);
+playerLoginLink.addEventListener("click", confirmPlayerLoginNavigation);
 logoutBtn.addEventListener("click", logout);
 
 function getViewContext() {
@@ -168,11 +172,11 @@ function configurePageChrome() {
   pageIntro.textContent = isAdmin
     ? "Control the round, monitor all players, roll dice, and move the table forward."
     : viewContext.role === "player"
-      ? "Buy your cards, choose one during betting, and place it on Below 7, Exact 7, or Above 7."
+      ? "Add money to your wallet, then type a bet amount on Below 7, Exact 7, or Above 7."
       : "Enter with your admin key or player seat before joining the live table.";
   playerPanelTitle.textContent = isAdmin
     ? "Monitor players and manage table flow"
-    : "Buy cards, then place your selected card when betting opens";
+    : "Add wallet funds, then type lane bets when betting opens";
   loginPanel.hidden = !isLogin;
   roleNav.hidden = isLogin || viewContext.role === "player";
   profileBar.hidden = isLogin;
@@ -239,8 +243,24 @@ function clearLoginSession() {
 }
 
 function logout() {
+  const profileLabel = viewContext.role === "admin" ? "admin" : `player ${viewContext.playerId}`;
+
+  if (!window.confirm(`Log out of ${profileLabel}?`)) {
+    return;
+  }
+
   clearLoginSession();
   window.location.replace("/login");
+}
+
+function confirmPlayerLoginNavigation(event) {
+  if (viewContext.role !== "admin" && viewContext.role !== "player") {
+    return;
+  }
+
+  if (!window.confirm("Leave this profile and open player login?")) {
+    event.preventDefault();
+  }
 }
 
 function canControlActivePlayer() {
@@ -364,11 +384,11 @@ function render() {
   timerLabel.textContent = state.phase === "staging" ? "Stage" : "Bet time";
   betTimerEl.textContent = state.phase === "staging" ? "Ready" : `${getDisplayedBetSeconds()}s`;
   activePlayerName.textContent = activePlayer.name;
-  activePlayerWallet.textContent = `Carried balance: ${formatRupees(activePlayer.walletBalance)}`;
+  activePlayerWallet.textContent = `Wallet: ${formatRupees(activePlayer.walletBalance)} | Add left: ${formatRupees(getPlayerBuyLimitLeft(activePlayer))}`;
   consentTokenText.hidden = viewContext.role !== "player";
   consentTokenText.textContent = `Consent token for admin help: ${activePlayer.consentToken || "----"}`;
   playerConsentField.querySelector("span").textContent = `Consent token for ${activePlayer.name}`;
-  playerLimitText.textContent = `Max purchase per player: ${formatRupees(gameSettings.maxPurchasePerPlayer)}`;
+  playerLimitText.textContent = `Max wallet add per player: ${formatRupees(gameSettings.maxPurchasePerPlayer)}`;
 
   renderLanes();
   renderPlayers();
@@ -422,6 +442,19 @@ function renderLanes() {
   lanes.forEach((lane) => {
     const laneTotal = getLaneTotal(lane.id);
     const lanePlayers = getLanePlayers(lane.id);
+    const activePlayer = getActivePlayer();
+    const activePlayerLaneBet = getPlayerLaneBet(activePlayer, lane.id);
+    const canBet = Boolean(
+      state.bettingOpen
+      && state.phase === "betting"
+      && !state.roundResolved
+      && !state.rolling
+      && canControlActivePlayer()
+      && activePlayer.walletBalance > 0
+    );
+    const canRemoveBet = Boolean(canBet && activePlayerLaneBet > 0);
+    const laneBetDraftKey = getLaneBetDraftKey(activePlayer.id, lane.id);
+    const laneBetDraftValue = inputDrafts.laneBets[laneBetDraftKey] || "";
     const laneEl = document.createElement("article");
     laneEl.className = "lane";
     laneEl.style.setProperty("--lane-color", lane.color);
@@ -432,6 +465,10 @@ function renderLanes() {
 
     if (state.winningLaneId === lane.id) {
       laneEl.classList.add("is-winning-lane");
+    }
+
+    if (state.roundResolved && state.winningLaneId && state.winningLaneId !== lane.id) {
+      laneEl.classList.add("is-dimmed-lane");
     }
 
     laneEl.innerHTML = `
@@ -468,10 +505,30 @@ function renderLanes() {
         <div class="bet-stack">
           ${lanePlayers.length ? lanePlayers.map((entry) => `<div class="placed-card"><span>${entry.name}</span><strong>${formatRupees(entry.total)}</strong></div>`).join("") : "<div class=\"placed-card\"><span>No bets yet</span><strong>-</strong></div>"}
         </div>
+        <form class="lane-bet-form">
+          <label>
+            <span>Your bet${activePlayerLaneBet > 0 ? `: ${formatRupees(activePlayerLaneBet)}` : ""}</span>
+            <input type="number" inputmode="numeric" min="1" max="${activePlayer.walletBalance}" step="1" value="${escapeAttribute(laneBetDraftValue)}" placeholder="${activePlayer.walletBalance > 0 ? `1-${activePlayer.walletBalance}` : "Wallet 0"}" ${canBet ? "" : "disabled"}>
+          </label>
+          <button type="submit" class="lane-action" ${canBet ? "" : "disabled"}>Place</button>
+          <button type="button" class="lane-remove" ${canRemoveBet ? "" : "disabled"}>Remove</button>
+        </form>
       </div>
     `;
 
-    laneEl.addEventListener("click", () => placeSelectedCard(lane.id));
+    const betForm = laneEl.querySelector(".lane-bet-form");
+    const betInput = betForm.querySelector("input");
+    betInput.addEventListener("input", () => {
+      betInput.value = betInput.value.replace(/\D/g, "");
+      inputDrafts.laneBets[laneBetDraftKey] = betInput.value;
+    });
+    betForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      placeLaneBet(lane.id, betInput.value);
+    });
+    laneEl.querySelector(".lane-remove").addEventListener("click", () => {
+      removeLaneBet(lane.id);
+    });
     laneGrid.appendChild(laneEl);
   });
 }
@@ -497,7 +554,8 @@ function renderPlayers() {
       <strong>${formatRupees(getPlayerRoundBet(player))}</strong>
       <div class="player-money-row">
         <small><em>Bought</em>${formatRupees(player.purchasedTotal)}</small>
-        <small><em>Remaining</em>${formatRupees(getPlayerRemainingMoney(player))}</small>
+        <small><em>Wallet</em>${formatRupees(player.walletBalance)}</small>
+        <small><em>On table</em>${formatRupees(getPlayerRoundBet(player))}</small>
         <small><em>Won</em>${formatRupees(player.winnings)}</small>
         <small><em>Total</em>${formatRupees(getPlayerTotalMoney(player))}</small>
       </div>
@@ -515,65 +573,63 @@ function renderPlayers() {
 
 function renderBuyCards() {
   const activePlayer = getActivePlayer();
+  const canBuyNow = state.phase === "staging"
+    && !state.roundResolved
+    && !state.rolling
+    && canControlActivePlayer();
   buyCardPanel.innerHTML = "";
 
-  getCardDenominations().forEach((value) => {
-    const button = document.createElement("button");
-    const canUseBalance = activePlayer.walletBalance >= value;
-    button.type = "button";
-    button.className = "buy-card";
-    button.classList.toggle("is-balance-card", canUseBalance);
-    button.textContent = `${canUseBalance ? "Use" : "Buy"} ${formatRupees(value)}`;
-    button.title = canUseBalance
-      ? `Convert ${formatRupees(value)} from carried balance into a digital card.`
-      : `Buy a new ${formatRupees(value)} digital card.`;
-    button.disabled = state.phase !== "staging"
-      || state.roundResolved
-      || state.rolling
-      || !canControlActivePlayer()
-      || (activePlayer.walletBalance < value && activePlayer.purchasedTotal + value > gameSettings.maxPurchasePerPlayer);
+  const customWrap = document.createElement("form");
+  const maxCustomAmount = getMaxBuyAmount(activePlayer);
+  const walletDraftKey = getWalletDraftKey(activePlayer.id);
+  const walletDraftValue = inputDrafts.walletAdds[walletDraftKey] || "";
+  customWrap.className = "custom-buy";
+  customWrap.innerHTML = `
+    <label>
+      <span>Add to wallet</span>
+      <input type="number" inputmode="numeric" min="1" max="${maxCustomAmount}" step="1" value="${escapeAttribute(walletDraftValue)}" placeholder="${maxCustomAmount > 0 ? `1-${maxCustomAmount}` : "Max 0"}">
+    </label>
+    <button type="submit" class="buy-card">Add</button>
+  `;
 
-    button.addEventListener("click", () => buyCard(value));
-    buyCardPanel.appendChild(button);
+  const input = customWrap.querySelector("input");
+  const customBuyButton = customWrap.querySelector("button");
+  input.disabled = !canBuyNow || maxCustomAmount <= 0;
+  customBuyButton.disabled = !canBuyNow || maxCustomAmount <= 0;
+  input.addEventListener("input", () => {
+    input.value = input.value.replace(/\D/g, "");
+    inputDrafts.walletAdds[walletDraftKey] = input.value;
   });
+  customWrap.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const amount = Number(input.value);
+
+    if (!Number.isInteger(amount) || amount <= 0) {
+      roundResult.textContent = "Enter whole rupees";
+      roundDetail.textContent = "Use a whole rupee amount with no decimals.";
+      return;
+    }
+
+    if (amount > maxCustomAmount) {
+      roundResult.textContent = "Amount too high";
+      roundDetail.textContent = `This player can add up to ${formatRupees(maxCustomAmount)} right now.`;
+      return;
+    }
+
+    buyCard(amount);
+  });
+  buyCardPanel.appendChild(customWrap);
 }
 
 function renderHand() {
   const activePlayer = getActivePlayer();
   cardHand.innerHTML = "";
-
-  if (activePlayer.hand.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "empty-hand";
-    empty.textContent = activePlayer.walletBalance > 0
-      ? "No cards in hand. Choose a denomination to convert remaining money into a card."
-      : "No cards in hand. Buy a digital card to place a bet.";
-    cardHand.appendChild(empty);
-    return;
-  }
-
-  activePlayer.hand.forEach((card) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "card-button";
-    button.textContent = formatRupees(card.value);
-    button.disabled = !state.bettingOpen
-      || state.phase !== "betting"
-      || state.roundResolved
-      || state.rolling
-      || !canControlActivePlayer();
-
-    if (state.selectedCardId === card.id) {
-      button.classList.add("is-selected");
-    }
-
-    button.addEventListener("click", () => {
-      state.selectedCardId = state.selectedCardId === card.id ? null : card.id;
-      render();
-    });
-
-    cardHand.appendChild(button);
-  });
+  const walletSummary = document.createElement("p");
+  walletSummary.className = "empty-hand";
+  walletSummary.textContent = state.phase === "betting"
+    ? `${formatRupees(activePlayer.walletBalance)} available. Type an amount directly on a lane to place a bet.`
+    : `${formatRupees(activePlayer.walletBalance)} in wallet. Add funds before betting starts.`;
+  cardHand.appendChild(walletSummary);
 }
 
 function renderHistory() {
@@ -581,7 +637,7 @@ function renderHistory() {
 
   if (state.history.length === 0) {
     const emptyItem = document.createElement("li");
-    emptyItem.innerHTML = "<strong>No rolls yet</strong>Buy cards and place bets before the timer reaches zero.";
+    emptyItem.innerHTML = "<strong>No rolls yet</strong>Add wallet funds and place lane bets before the timer reaches zero.";
     historyList.appendChild(emptyItem);
     return;
   }
@@ -620,10 +676,14 @@ async function buyCard(value) {
     return;
   }
 
-  await runGameAction("/api/game/actions/buy-card", {
+  const success = await runGameAction("/api/game/actions/buy-card", {
     playerId: getActivePlayer().id,
     value
   });
+
+  if (success) {
+    delete inputDrafts.walletAdds[getWalletDraftKey(getActivePlayer().id)];
+  }
 }
 
 async function startBetting() {
@@ -639,19 +699,52 @@ async function startBetting() {
   startBetTimer();
 }
 
-async function placeSelectedCard(laneId) {
+async function placeLaneBet(laneId, value) {
   const activePlayer = getActivePlayer();
-  const card = activePlayer.hand.find((entry) => entry.id === state.selectedCardId);
+  const amount = Number(value);
 
-  if (!card || !state.bettingOpen || state.phase !== "betting" || state.roundResolved || state.rolling) {
+  if (!state.bettingOpen || state.phase !== "betting" || state.roundResolved || state.rolling) {
     return;
   }
 
-  await runGameAction("/api/game/actions/place-bet", {
+  if (!Number.isInteger(amount) || amount <= 0) {
+    roundResult.textContent = "Enter whole rupees";
+    roundDetail.textContent = "Use a whole rupee amount with no decimals.";
+    return;
+  }
+
+  if (amount > activePlayer.walletBalance) {
+    roundResult.textContent = "Not enough wallet";
+    roundDetail.textContent = `${activePlayer.name} has ${formatRupees(activePlayer.walletBalance)} available.`;
+    return;
+  }
+
+  const success = await runGameAction("/api/game/actions/place-bet", {
     playerId: activePlayer.id,
-    cardId: card.id,
+    amount,
     laneId
   });
+
+  if (success) {
+    delete inputDrafts.laneBets[getLaneBetDraftKey(activePlayer.id, laneId)];
+  }
+}
+
+async function removeLaneBet(laneId) {
+  const activePlayer = getActivePlayer();
+
+  if (!state.bettingOpen || state.phase !== "betting" || state.roundResolved || state.rolling) {
+    return;
+  }
+
+  const success = await runGameAction("/api/game/actions/remove-bet", {
+    playerId: activePlayer.id,
+    laneId
+  });
+
+  if (success) {
+    delete inputDrafts.laneBets[getLaneBetDraftKey(activePlayer.id, laneId)];
+  }
 }
 
 async function rollDice() {
@@ -811,12 +904,32 @@ function getPlayerLaneBet(player, laneId) {
   return player.bets[laneId].reduce((sum, card) => sum + card.value, 0);
 }
 
+function getPlayerHandTotal(player) {
+  return player.hand.reduce((sum, card) => sum + card.value, 0);
+}
+
 function getPlayerRemainingMoney(player) {
-  return player.walletBalance + player.hand.reduce((sum, card) => sum + card.value, 0);
+  return player.walletBalance;
 }
 
 function getPlayerTotalMoney(player) {
   return getPlayerRemainingMoney(player) + player.winnings;
+}
+
+function getPlayerBuyLimitLeft(player) {
+  return Math.max(0, gameSettings.maxPurchasePerPlayer - player.purchasedTotal);
+}
+
+function getMaxBuyAmount(player) {
+  return Math.floor(getPlayerBuyLimitLeft(player));
+}
+
+function getWalletDraftKey(playerId) {
+  return String(playerId);
+}
+
+function getLaneBetDraftKey(playerId, laneId) {
+  return `${playerId}:${laneId}`;
 }
 
 function randomDie() {
@@ -875,7 +988,7 @@ function getSessionHeaders() {
 function startLiveSync() {
   window.clearInterval(liveSyncId);
   liveSyncId = window.setInterval(async () => {
-    if (document.hidden || state.rolling || state.selectedCardId) {
+    if (document.hidden || state.rolling) {
       return;
     }
 
@@ -893,7 +1006,6 @@ function applyGameSession(session) {
     return;
   }
 
-  const selectedCardId = state.selectedCardId;
   stopBetTimer();
   Object.assign(state, {
     ...session.state,
@@ -911,22 +1023,10 @@ function applyGameSession(session) {
     state.history = [];
   }
 
-  const activePlayer = getActivePlayer();
-  const canKeepSelectedCard = selectedCardId
-    && state.bettingOpen
-    && state.phase === "betting"
-    && !state.roundResolved
-    && !state.rolling
-    && activePlayer.hand.some((card) => card.id === selectedCardId);
-
-  if (canKeepSelectedCard) {
-    state.selectedCardId = selectedCardId;
-  }
-
   dieOne.textContent = session.ui?.dieOne || "?";
   dieTwo.textContent = session.ui?.dieTwo || "?";
-  roundResult.textContent = session.ui?.roundResult || "Staging: buy cards";
-  roundDetail.textContent = session.ui?.roundDetail || "Players can buy digital cards now. The owner starts the betting timer when the table is ready.";
+  roundResult.textContent = session.ui?.roundResult || "Staging: add wallet funds";
+  roundDetail.textContent = session.ui?.roundDetail || "Players can add money to their wallet now. The owner starts the betting timer when the table is ready.";
   playerConsentInput.value = getPlayerConsentToken(state.activePlayerId);
 }
 
@@ -939,9 +1039,11 @@ async function runGameAction(url, payload = {}) {
     if (state.bettingOpen && state.phase === "betting" && !state.roundResolved) {
       startBetTimer();
     }
+    return true;
   } catch (error) {
     roundResult.textContent = "Action failed";
     roundDetail.textContent = error.message;
+    return false;
   }
 }
 
@@ -984,13 +1086,15 @@ async function postGameAction(url, payload = {}) {
 }
 
 function formatRupees(value) {
-  return `Rs ${value}`;
+  return `Rs ${Math.floor(Number(value) || 0)}`;
 }
 
-function getCardDenominations() {
-  return [...new Set(gameSettings.cardDenominations)]
-    .filter((value) => Number.isFinite(value) && value > 0)
-    .sort((a, b) => a - b);
+function escapeAttribute(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function registerServiceWorker() {

@@ -34,8 +34,7 @@ const lanes = [
 const settings = {
   betTimeSeconds: 15,
   maxPlayers: 10,
-  maxPurchasePerPlayer: 1000,
-  cardDenominations: [10, 50, 100, 200, 500]
+  maxPurchasePerPlayer: 1000
 };
 
 function createConsentToken() {
@@ -103,8 +102,8 @@ function createInitialSession() {
     ui: {
       dieOne: "?",
       dieTwo: "?",
-      roundResult: "Staging: buy cards",
-      roundDetail: "Players can buy digital cards now. The owner starts the betting timer when the table is ready."
+      roundResult: "Staging: add wallet funds",
+      roundDetail: "Players can add money to their wallet now. The owner starts the betting timer when the table is ready."
     },
     updatedAt: new Date().toISOString()
   };

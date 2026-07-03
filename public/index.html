@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Lucky 7 Cards</title>
+  <title>Lucky 7 Wallet</title>
   <meta name="theme-color" content="#09111f">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -11,15 +11,15 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="/style.css?v=15">
+  <link rel="stylesheet" href="/style.css?v=23">
 </head>
 <body>
   <main class="game-shell">
     <header class="game-header">
       <section class="title-block">
-        <p class="eyebrow" id="pageEyebrow">Dice card arena</p>
-        <h1 id="pageTitle">Lucky 7 Cards</h1>
-        <p id="pageIntro">Up to 10 players buy digital rupee cards, place them on Below 7, Exact 7, or Above 7, then two dice decide the winning lane.</p>
+        <p class="eyebrow" id="pageEyebrow">Dice wallet arena</p>
+        <h1 id="pageTitle">Lucky 7 Wallet</h1>
+        <p id="pageIntro">Up to 10 players add wallet funds, type bets on Below 7, Exact 7, or Above 7, then two dice decide the winning lane.</p>
       </section>
 
       <section class="scoreboard" aria-label="Scoreboard">
@@ -71,7 +71,7 @@
       </form>
     </section>
 
-    <section class="table-top" hidden>
+    <section class="table-top">
       <div class="dice-stage" aria-live="polite">
         <div class="dice-pair" id="dicePair">
           <div class="die" id="dieOne" aria-label="Die one">?</div>
@@ -79,8 +79,8 @@
         </div>
         <div>
           <p class="status-label">Result</p>
-          <h2 id="roundResult">Staging: buy cards</h2>
-          <p id="roundDetail">Players can buy digital cards now. The owner starts the betting timer when the table is ready.</p>
+          <h2 id="roundResult">Staging: add wallet funds</h2>
+          <p id="roundDetail">Players can add money to their wallet now. The owner starts the betting timer when the table is ready.</p>
         </div>
       </div>
 
@@ -104,36 +104,36 @@
       </div>
     </section>
 
-    <section class="lane-grid" id="laneGrid" aria-label="Betting lanes" hidden></section>
+    <section class="lane-grid" id="laneGrid" aria-label="Betting lanes"></section>
 
-    <section class="player-panel" hidden>
+    <section class="player-panel">
       <div class="player-panel-top">
         <div>
           <p class="status-label">Players</p>
-          <h2 id="playerPanelTitle">Select a player, buy cards, then start betting</h2>
+          <h2 id="playerPanelTitle">Select a player, add wallet funds, then start betting</h2>
         </div>
-        <p id="playerLimitText" class="limit-text">Max purchase per player: Rs 1000</p>
+        <p id="playerLimitText" class="limit-text">Max wallet add per player: Rs 1000</p>
       </div>
       <div class="buy-row">
         <div>
           <p class="status-label">Active player</p>
           <h2 id="activePlayerName">Player 1</h2>
-          <p id="activePlayerWallet" class="limit-text">Carried balance: Rs 0</p>
+          <p id="activePlayerWallet" class="limit-text">Wallet: Rs 0 | Buy left: Rs 1000</p>
           <p id="consentTokenText" class="limit-text" hidden>Consent token: ----</p>
         </div>
-        <div id="buyCardPanel" class="buy-card-panel" aria-label="Buy digital cards"></div>
+        <div id="buyCardPanel" class="buy-card-panel" aria-label="Add wallet funds"></div>
       </div>
       <div class="hand-panel">
         <div>
-          <p class="status-label">Digital cards</p>
-          <h2>Select a rupee card</h2>
+          <p class="status-label">Wallet betting</p>
+          <h2>Type bets on lanes</h2>
         </div>
-        <div class="card-hand" id="cardHand" aria-label="Playable cards"></div>
+        <div class="card-hand" id="cardHand" aria-label="Wallet betting status"></div>
       </div>
       <div id="playerList" class="player-list" aria-label="Player seats"></div>
     </section>
 
-    <section class="history-panel" hidden>
+    <section class="history-panel">
       <div>
         <p class="status-label">Round log</p>
         <h2>Last rolls</h2>
@@ -142,6 +142,6 @@
     </section>
   </main>
 
-  <script src="/app.js?v=15"></script>
+  <script src="/app.js?v=23"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
-# Lucky 7 Cards
+# Lucky 7 Wallet
 
-A Lucky 7 dice-and-card game served by a Node.js Express backend.
+A Lucky 7 dice-and-wallet betting game served by a Node.js Express backend.
 
 ## Project Structure
 
@@ -16,9 +16,10 @@ A Lucky 7 dice-and-card game served by a Node.js Express backend.
 - `GET /api/game/session` - current in-memory game session.
 - `DELETE /api/game/session` - reset the in-memory game session.
 - `POST /api/game/actions/select-player` - set the active player.
-- `POST /api/game/actions/buy-card` - buy or convert a rupee card.
+- `POST /api/game/actions/buy-card` - add a typed rupee amount to a player's wallet during staging.
 - `POST /api/game/actions/start-betting` - open betting and start the backend timer.
-- `POST /api/game/actions/place-bet` - place a selected card on a lane.
+- `POST /api/game/actions/place-bet` - place a typed wallet amount on a lane.
+- `POST /api/game/actions/remove-bet` - remove a player's current bet from a lane before the roll.
 - `POST /api/game/actions/roll` - roll dice and resolve payouts.
 - `POST /api/game/actions/next-round` - prepare the next round.
 - `POST /api/game/actions/reset` - reset the table.
@@ -40,7 +41,7 @@ Open `http://localhost:3000`.
 - `/admin-login` - admin login alias.
 - `/player-login` - player seat login alias.
 - `/admin` - admin table controls for starting betting, rolling dice, next round, and reset.
-- `/player/1` through `/player/10` - individual player pages for buying cards and placing bets.
+- `/player/1` through `/player/10` - individual player pages for adding wallet funds and placing lane bets.
 
 Admin login uses `ADMIN_USERNAME` and `ADMIN_PASSWORD`. For local testing, defaults are `admin` / `admin`.
 
@@ -48,7 +49,7 @@ Player login uses the same username/password form as admin. Player usernames are
 
 Open `/login` and enter credentials in the shared login form. Tokens are stored only in that browser tab session and sent with API requests.
 
-Player pages display a consent token. Admin can view player balances and bets, but must enter a player's consent token before buying cards or placing bets for that player. Live table state refreshes automatically every second.
+Player pages display a consent token. Admin can view player balances and bets, but must enter a player's consent token before adding wallet funds or placing/removing bets for that player. Live table state refreshes automatically every second.
 
 ## Deploy on Render
 

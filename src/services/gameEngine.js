@@ -1,4 +1,3 @@
-const { randomUUID } = require("crypto");
 const { lanes, settings, rollDice, createInitialSession } = require("../config/game");
 
 function getActivePlayer(state) {
@@ -25,7 +24,7 @@ function formatRupees(value) {
 }
 
 function getPlayerLaneBet(player, laneId) {
-  return player.bets[laneId].reduce((sum, card) => sum + card.value, 0);
+  return player.bets[laneId].reduce((sum, bet) => sum + bet.value, 0);
 }
 
 function getPlayerRoundBet(player) {
@@ -33,7 +32,7 @@ function getPlayerRoundBet(player) {
 }
 
 function getPlayerRemainingMoney(player) {
-  return player.walletBalance + player.hand.reduce((sum, card) => sum + card.value, 0);
+  return player.walletBalance;
 }
 
 function getPlayerTotalMoney(player) {
@@ -83,36 +82,31 @@ function selectPlayer(session, playerId) {
 function buyCard(session, playerId, value) {
   const state = session.state;
   const player = getPlayer(state, playerId);
-  const cardValue = Number(value);
+  const walletValue = Number(value);
+  const rawValue = String(value).trim();
 
   if (!player) {
     throw new Error("Player not found.");
   }
 
   if (state.phase !== "staging" || state.roundResolved || state.rolling) {
-    throw new Error("Cards can only be bought during staging.");
+    throw new Error("Wallet funds can only be added during staging.");
   }
 
-  if (!settings.cardDenominations.includes(cardValue)) {
-    throw new Error("Invalid card denomination.");
+  if (!/^\d+$/.test(rawValue) || !Number.isInteger(walletValue) || walletValue <= 0) {
+    throw new Error("Enter a whole rupee amount.");
   }
 
-  if (player.walletBalance >= cardValue) {
-    player.walletBalance -= cardValue;
-  } else if (player.purchasedTotal + cardValue <= settings.maxPurchasePerPlayer) {
-    player.purchasedTotal += cardValue;
+  if (player.purchasedTotal + walletValue <= settings.maxPurchasePerPlayer) {
+    player.purchasedTotal += walletValue;
+    player.walletBalance += walletValue;
   } else {
     throw new Error("Player purchase limit reached.");
   }
 
-  player.hand.push({
-    id: randomUUID(),
-    value: cardValue
-  });
-
   state.activePlayerId = player.id;
-  session.ui.roundResult = `${player.name} added a ${formatRupees(cardValue)} card.`;
-  session.ui.roundDetail = `${player.name} has ${formatRupees(player.walletBalance)} remaining to convert and can buy ${formatRupees(settings.maxPurchasePerPlayer - player.purchasedTotal)} more.`;
+  session.ui.roundResult = `${player.name} added ${formatRupees(walletValue)} to wallet.`;
+  session.ui.roundDetail = `${player.name} has ${formatRupees(player.walletBalance)} in wallet and can add ${formatRupees(settings.maxPurchasePerPlayer - player.purchasedTotal)} more.`;
   return session;
 }
 
@@ -128,14 +122,16 @@ function startBetting(session) {
   state.betSecondsLeft = settings.betTimeSeconds;
   state.betEndsAt = Date.now() + settings.betTimeSeconds * 1000;
   session.ui.roundResult = "Betting open";
-  session.ui.roundDetail = `Players can place bought cards now. Dice roll when the ${settings.betTimeSeconds}-second timer ends.`;
+  session.ui.roundDetail = `Players can type bet amounts from their wallet now. Dice roll when the ${settings.betTimeSeconds}-second timer ends.`;
   return session;
 }
 
-function placeBet(session, playerId, cardId, laneId) {
+function placeBet(session, playerId, amount, laneId) {
   const state = session.state;
   const player = getPlayer(state, playerId);
   const lane = getLane(laneId);
+  const betValue = Number(amount);
+  const rawValue = String(amount).trim();
 
   syncTimer(state);
 
@@ -151,19 +147,57 @@ function placeBet(session, playerId, cardId, laneId) {
     throw new Error("Betting is not open.");
   }
 
-  const card = player.hand.find((entry) => entry.id === cardId);
-
-  if (!card) {
-    throw new Error("Card not found in player hand.");
+  if (!/^\d+$/.test(rawValue) || !Number.isInteger(betValue) || betValue <= 0) {
+    throw new Error("Enter a whole rupee bet amount.");
   }
 
-  player.hand = player.hand.filter((entry) => entry.id !== card.id);
-  player.bets[lane.id].push(card);
+  if (player.walletBalance < betValue) {
+    throw new Error("Not enough wallet balance.");
+  }
+
+  player.walletBalance -= betValue;
+  player.bets[lane.id].push({
+    value: betValue
+  });
   state.activePlayerId = player.id;
   state.selectedCardId = null;
   state.selectedLane = lane.id;
-  session.ui.roundResult = `${player.name} placed ${formatRupees(card.value)}.`;
+  session.ui.roundResult = `${player.name} placed ${formatRupees(betValue)}.`;
   session.ui.roundDetail = `${formatRupees(getTablePot(state))} is now on the table. Dice roll when the timer ends, or you can roll now.`;
+  return session;
+}
+
+function removeBet(session, playerId, laneId) {
+  const state = session.state;
+  const player = getPlayer(state, playerId);
+  const lane = getLane(laneId);
+
+  syncTimer(state);
+
+  if (!player) {
+    throw new Error("Player not found.");
+  }
+
+  if (!lane) {
+    throw new Error("Lane not found.");
+  }
+
+  if (!state.bettingOpen || state.phase !== "betting" || state.roundResolved || state.rolling || state.betSecondsLeft === 0) {
+    throw new Error("Bets can only be removed while betting is open.");
+  }
+
+  const removedTotal = getPlayerLaneBet(player, lane.id);
+
+  if (removedTotal <= 0) {
+    throw new Error("No bet to remove from this lane.");
+  }
+
+  player.walletBalance += removedTotal;
+  player.bets[lane.id] = [];
+  state.activePlayerId = player.id;
+  state.selectedLane = null;
+  session.ui.roundResult = `${player.name} removed ${formatRupees(removedTotal)} from ${lane.title}.`;
+  session.ui.roundDetail = `${formatRupees(getTablePot(state))} remains on the table.`;
   return session;
 }
 
@@ -251,8 +285,8 @@ function nextRound(session) {
   });
   session.ui.dieOne = "?";
   session.ui.dieTwo = "?";
-  session.ui.roundResult = "Staging: buy cards";
-  session.ui.roundDetail = `Each player can buy up to ${formatRupees(settings.maxPurchasePerPlayer)}. The owner starts the betting timer when ready.`;
+  session.ui.roundResult = "Staging: add wallet funds";
+  session.ui.roundDetail = `Each player can add up to ${formatRupees(settings.maxPurchasePerPlayer)} to their wallet. The owner starts the betting timer when ready.`;
   return session;
 }
 
@@ -291,6 +325,7 @@ module.exports = {
   buyCard,
   startBetting,
   placeBet,
+  removeBet,
   rollAndResolve,
   nextRound,
   resetGame

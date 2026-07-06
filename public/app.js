@@ -80,6 +80,15 @@ const loginPasswordInput = document.querySelector("#loginPasswordInput");
 const profileBar = document.querySelector("#profileBar");
 const profileName = document.querySelector("#profileName");
 const logoutBtn = document.querySelector("#logoutBtn");
+const settingsPanel = document.querySelector("#settingsPanel");
+const settingsForm = document.querySelector("#settingsForm");
+const settingsStatus = document.querySelector("#settingsStatus");
+const settingMaxPlayers = document.querySelector("#settingMaxPlayers");
+const settingWalletLimit = document.querySelector("#settingWalletLimit");
+const settingBetTimer = document.querySelector("#settingBetTimer");
+const settingBelowPayout = document.querySelector("#settingBelowPayout");
+const settingExactPayout = document.querySelector("#settingExactPayout");
+const settingAbovePayout = document.querySelector("#settingAbovePayout");
 
 const state = {
   round: 1,
@@ -124,6 +133,7 @@ playerConsentInput.addEventListener("input", savePlayerConsentToken);
 loginForm.addEventListener("submit", handleLogin);
 playerLoginLink.addEventListener("click", confirmPlayerLoginNavigation);
 logoutBtn.addEventListener("click", logout);
+settingsForm.addEventListener("submit", handleSettingsSubmit);
 
 function getViewContext() {
   if (window.location.pathname === "/" || window.location.pathname === "/login") {
@@ -191,6 +201,7 @@ function configurePageChrome() {
   laneGrid.hidden = isLogin;
   document.querySelector(".player-panel").hidden = isLogin;
   document.querySelector(".history-panel").hidden = isLogin;
+  settingsPanel.hidden = !isAdmin;
   loginLabel.textContent = "Login";
   loginTitle.textContent = "Enter the table";
   loginDetail.textContent = "Use admin credentials or a player username such as player1.";
@@ -202,6 +213,7 @@ function configurePageChrome() {
   adminLink.classList.toggle("is-active", isAdmin);
   playerLoginLink.classList.toggle("is-active", viewContext.role === "player-login");
   renderPlayerLinks();
+  renderSettingsForm();
 }
 
 function renderPlayerLinks() {
@@ -220,6 +232,81 @@ function renderPlayerLinks() {
     }
     playerLinks.appendChild(link);
   });
+}
+
+function renderSettingsForm() {
+  if (viewContext.role !== "admin") {
+    return;
+  }
+
+  settingMaxPlayers.value = gameSettings.maxPlayers;
+  settingWalletLimit.value = gameSettings.maxPurchasePerPlayer;
+  settingBetTimer.value = gameSettings.betTimeSeconds;
+  settingBelowPayout.value = getLaneSetting("below").payoutMultiplier;
+  settingExactPayout.value = getLaneSetting("exact").payoutMultiplier;
+  settingAbovePayout.value = getLaneSetting("above").payoutMultiplier;
+}
+
+async function handleSettingsSubmit(event) {
+  event.preventDefault();
+
+  if (viewContext.role !== "admin") {
+    return;
+  }
+
+  const restart = event.submitter?.value === "restart";
+
+  try {
+    const response = await fetch("/api/game/settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-key": getAdminKey()
+      },
+      body: JSON.stringify({
+        restart,
+        settings: {
+          maxPlayers: Number(settingMaxPlayers.value),
+          maxPurchasePerPlayer: Number(settingWalletLimit.value),
+          betTimeSeconds: Number(settingBetTimer.value)
+        },
+        lanes: [
+          { id: "below", payoutMultiplier: Number(settingBelowPayout.value) },
+          { id: "exact", payoutMultiplier: Number(settingExactPayout.value) },
+          { id: "above", payoutMultiplier: Number(settingAbovePayout.value) }
+        ]
+      })
+    });
+    const body = await response.json();
+
+    if (!response.ok) {
+      throw new Error(body.error || "Settings update failed.");
+    }
+
+    gameSettings = { ...gameSettings, ...body.config.settings };
+    lanes = body.config.lanes.map((lane) => ({
+      ...lane,
+      test: (sum) => sum >= lane.minSum && sum <= lane.maxSum
+    }));
+
+    if (body.session) {
+      applyGameSession(body.session);
+    }
+
+    renderPlayerLinks();
+    renderSettingsForm();
+    render();
+    reconcileBetTimer();
+    settingsStatus.textContent = restart
+      ? "Settings saved and game restarted."
+      : "Settings saved for the current table.";
+  } catch (error) {
+    settingsStatus.textContent = error.message;
+  }
+}
+
+function getLaneSetting(laneId) {
+  return lanes.find((lane) => lane.id === laneId) || { payoutMultiplier: 1 };
 }
 
 function getAdminKey() {
@@ -348,6 +435,7 @@ async function initGame() {
 
   render();
   await loadGameConfig();
+  renderSettingsForm();
   await loadPaymentConfig();
   await loadGameSession();
   render();

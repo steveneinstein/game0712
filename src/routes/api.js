@@ -1,6 +1,6 @@
 const express = require("express");
 const { randomUUID } = require("crypto");
-const { lanes, settings } = require("../config/game");
+const { lanes, settings, getGameConfig, updateGameSettings } = require("../config/game");
 const { getSession, updateSession, resetSession } = require("../store/sessionStore");
 const {
   touchSession,
@@ -26,7 +26,23 @@ router.get("/health", (req, res) => {
 });
 
 router.get("/game/config", (req, res) => {
-  res.json({ lanes, settings });
+  res.json(getGameConfig());
+});
+
+router.post("/game/settings", requireAdmin, (req, res) => {
+  try {
+    const config = updateGameSettings(req.body.settings, req.body.lanes);
+    const session = req.body.restart
+      ? resetSession()
+      : updateSession((currentSession) => applySettingsToSession(currentSession));
+
+    res.json({
+      config,
+      session: filterSessionForRequest(session, req)
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
 router.get("/game/session", (req, res) => {
@@ -239,6 +255,45 @@ function runAction(req, res, action) {
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
+}
+
+function applySettingsToSession(session) {
+  const players = session.state.players;
+
+  while (players.length < settings.maxPlayers) {
+    const id = players.length + 1;
+    players.push({
+      id,
+      name: `Player ${id}`,
+      consentToken: Math.random().toString(36).slice(2, 6).toUpperCase(),
+      authToken: null,
+      winnings: 0,
+      purchasedTotal: 0,
+      walletBalance: 0,
+      hand: [],
+      bets: lanes.reduce((bets, lane) => {
+        bets[lane.id] = [];
+        return bets;
+      }, {})
+    });
+  }
+
+  if (players.length > settings.maxPlayers) {
+    players.length = settings.maxPlayers;
+  }
+
+  if (!players.some((player) => player.id === session.state.activePlayerId)) {
+    session.state.activePlayerId = players[0]?.id || 1;
+  }
+
+  if (session.state.phase === "staging") {
+    session.state.betSecondsLeft = settings.betTimeSeconds;
+    session.state.betEndsAt = null;
+  }
+
+  session.ui.roundResult = "Settings updated";
+  session.ui.roundDetail = "Game settings were saved. Restart the game from settings to fully reset the table.";
+  return session;
 }
 
 router.post("/game/actions/select-player", (req, res) => {

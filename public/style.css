@@ -48,7 +48,8 @@ button {
 .login-panel,
 .player-panel,
 .hand-panel,
-.history-panel {
+.history-panel,
+.settings-panel {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035));
@@ -1090,12 +1091,70 @@ button:disabled {
   color: var(--ink);
 }
 
+.settings-panel {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+  padding: 22px;
+}
+
+.settings-panel-top {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.settings-panel h2 {
+  margin-bottom: 0;
+}
+
+.settings-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settings-form label {
+  display: grid;
+  gap: 7px;
+}
+
+.settings-form span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-form input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid rgba(255, 211, 106, 0.28);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.26);
+  font: inherit;
+  font-weight: 800;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 @media (max-width: 920px) {
   .game-header,
   .table-top,
   .player-panel,
   .hand-panel,
-  .history-panel {
+  .history-panel,
+  .settings-form {
     grid-template-columns: 1fr;
   }
 
@@ -1104,8 +1163,13 @@ button:disabled {
   }
 
   .player-panel-top,
+  .settings-panel-top,
   .buy-row {
     grid-template-columns: 1fr;
+  }
+
+  .settings-panel-top {
+    display: grid;
   }
 
   .player-list {
@@ -1223,6 +1287,7 @@ button:disabled {
   .player-panel,
   .hand-panel,
   .history-panel,
+  .settings-panel,
   .lane {
     padding: 14px;
   }

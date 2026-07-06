@@ -31,11 +31,12 @@ const lanes = [
   }
 ];
 
-const settings = {
+const defaultSettings = {
   betTimeSeconds: 15,
   maxPlayers: 10,
   maxPurchasePerPlayer: 1000
 };
+const settings = { ...defaultSettings };
 
 function createConsentToken() {
   return Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -109,9 +110,52 @@ function createInitialSession() {
   };
 }
 
+function updateGameSettings(nextSettings = {}, nextLanes = []) {
+  const betTimeSeconds = toInteger(nextSettings.betTimeSeconds, settings.betTimeSeconds, 5, 300);
+  const maxPlayers = toInteger(nextSettings.maxPlayers, settings.maxPlayers, 1, 50);
+  const maxPurchasePerPlayer = toInteger(nextSettings.maxPurchasePerPlayer, settings.maxPurchasePerPlayer, 1, 1000000);
+
+  settings.betTimeSeconds = betTimeSeconds;
+  settings.maxPlayers = maxPlayers;
+  settings.maxPurchasePerPlayer = maxPurchasePerPlayer;
+
+  if (Array.isArray(nextLanes)) {
+    nextLanes.forEach((entry) => {
+      const lane = lanes.find((item) => item.id === entry.id);
+
+      if (!lane) {
+        return;
+      }
+
+      lane.payoutMultiplier = toInteger(entry.payoutMultiplier, lane.payoutMultiplier, 1, 100);
+    });
+  }
+
+  return getGameConfig();
+}
+
+function getGameConfig() {
+  return {
+    lanes,
+    settings
+  };
+}
+
+function toInteger(value, fallback, min, max) {
+  const number = Number(value);
+
+  if (!Number.isInteger(number)) {
+    return fallback;
+  }
+
+  return Math.min(max, Math.max(min, number));
+}
+
 module.exports = {
   lanes,
   settings,
+  getGameConfig,
+  updateGameSettings,
   rollDice,
   createInitialSession
 };

@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="/style.css?v=23">
+  <link rel="stylesheet" href="/style.css?v=26">
 </head>
 <body>
   <main class="game-shell">
@@ -140,10 +140,50 @@
       </div>
       <ol id="historyList" class="history-list"></ol>
     </section>
+
+    <section class="settings-panel" id="settingsPanel" hidden>
+      <div class="settings-panel-top">
+        <div>
+          <p class="status-label">Game settings</p>
+          <h2>Table configuration</h2>
+        </div>
+        <p id="settingsStatus" class="limit-text">Adjust table rules before starting a round.</p>
+      </div>
+      <form id="settingsForm" class="settings-form">
+        <label>
+          <span>Players</span>
+          <input id="settingMaxPlayers" type="number" min="1" max="50" step="1">
+        </label>
+        <label>
+          <span>Wallet limit</span>
+          <input id="settingWalletLimit" type="number" min="1" max="1000000" step="1">
+        </label>
+        <label>
+          <span>Bet timer</span>
+          <input id="settingBetTimer" type="number" min="5" max="300" step="1">
+        </label>
+        <label>
+          <span>Below payout</span>
+          <input id="settingBelowPayout" type="number" min="1" max="100" step="1">
+        </label>
+        <label>
+          <span>Exact payout</span>
+          <input id="settingExactPayout" type="number" min="1" max="100" step="1">
+        </label>
+        <label>
+          <span>Above payout</span>
+          <input id="settingAbovePayout" type="number" min="1" max="100" step="1">
+        </label>
+        <div class="settings-actions">
+          <button type="submit" name="action" value="save" class="secondary-btn">Save settings</button>
+          <button type="submit" name="action" value="restart" class="primary-btn">Apply & restart game</button>
+        </div>
+      </form>
+    </section>
   </main>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/app.js?v=25"></script>
+  <script src="/app.js?v=27"></script>
 </body>
 </html>

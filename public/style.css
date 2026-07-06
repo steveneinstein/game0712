@@ -197,19 +197,26 @@ h2 {
 }
 
 .brand-mark {
-  display: grid;
+  display: flex;              /* Use flex instead of grid */
+  justify-content: center;
+  align-items: center;
+
   width: 74px;
-  aspect-ratio: 1;
-  place-items: center;
+  height: 74px;               /* Instead of aspect-ratio */
+
   border: 1px solid rgba(255, 211, 106, 0.34);
   border-radius: 8px;
   color: var(--gold);
-  background: linear-gradient(150deg, rgba(255, 211, 106, 0.16), rgba(255, 255, 255, 0.04));
-  box-shadow: inset 0 0 32px rgba(255, 211, 106, 0.12), 0 0 22px rgba(255, 211, 106, 0.12);
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 3.8rem;
+  background: linear-gradient(150deg,
+      rgba(255, 211, 106, 0.16),
+      rgba(255, 255, 255, 0.04));
+  box-shadow:
+      inset 0 0 32px rgba(255, 211, 106, 0.12),
+      0 0 22px rgba(255, 211, 106, 0.12);
+
+  font-size: 3rem;            /* Try slightly smaller */
   line-height: 1;
-  text-shadow: 0 0 18px rgba(255, 211, 106, 0.62);
+  padding: 0;
 }
 
 .brand-lockup strong,

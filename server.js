@@ -50,6 +50,7 @@ app.get("/login", sendApp);
 app.get("/admin-login", sendApp);
 app.get("/player-login", sendApp);
 app.get("/admin", sendApp);
+app.get("/player/:playerId/profile", sendApp);
 app.get("/player/:playerId", sendApp);
 
 app.use(express.static(publicDir));

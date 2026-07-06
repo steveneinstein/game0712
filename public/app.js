@@ -59,6 +59,7 @@ const historyList = document.querySelector("#historyList");
 const pageEyebrow = document.querySelector("#pageEyebrow");
 const pageTitle = document.querySelector("#pageTitle");
 const pageIntro = document.querySelector("#pageIntro");
+const gameHeader = document.querySelector("#gameHeader");
 const playerPanelTitle = document.querySelector("#playerPanelTitle");
 const adminLink = document.querySelector("#adminLink");
 const playerLoginLink = document.querySelector("#playerLoginLink");
@@ -78,7 +79,10 @@ const loginForm = document.querySelector("#loginForm");
 const loginUsernameInput = document.querySelector("#loginUsernameInput");
 const loginPasswordInput = document.querySelector("#loginPasswordInput");
 const profileBar = document.querySelector("#profileBar");
+const profileBadge = document.querySelector("#profileBadge");
 const profileName = document.querySelector("#profileName");
+const playerHomeLink = document.querySelector("#playerHomeLink");
+const playerProfileLink = document.querySelector("#playerProfileLink");
 const logoutBtn = document.querySelector("#logoutBtn");
 const settingsPanel = document.querySelector("#settingsPanel");
 const settingsForm = document.querySelector("#settingsForm");
@@ -89,6 +93,20 @@ const settingBetTimer = document.querySelector("#settingBetTimer");
 const settingBelowPayout = document.querySelector("#settingBelowPayout");
 const settingExactPayout = document.querySelector("#settingExactPayout");
 const settingAbovePayout = document.querySelector("#settingAbovePayout");
+const playerProfilePanel = document.querySelector("#playerProfilePanel");
+const playerHomeStats = document.querySelector("#playerHomeStats");
+const homeOnTableTotal = document.querySelector("#homeOnTableTotal");
+const homeActiveBetCount = document.querySelector("#homeActiveBetCount");
+const homeWonTotal = document.querySelector("#homeWonTotal");
+const homeWinCount = document.querySelector("#homeWinCount");
+const profileBoughtTotal = document.querySelector("#profileBoughtTotal");
+const profileBetCount = document.querySelector("#profileBetCount");
+const profileOnTableTotal = document.querySelector("#profileOnTableTotal");
+const profileActiveBetCount = document.querySelector("#profileActiveBetCount");
+const profileWonTotal = document.querySelector("#profileWonTotal");
+const profileWinCount = document.querySelector("#profileWinCount");
+const profileWithdrawBalance = document.querySelector("#profileWithdrawBalance");
+const transactionList = document.querySelector("#transactionList");
 
 const state = {
   round: 1,
@@ -157,13 +175,14 @@ function getViewContext() {
     };
   }
 
-  const playerMatch = window.location.pathname.match(/^\/player\/(\d+)$/);
+  const playerMatch = window.location.pathname.match(/^\/player\/(\d+)(\/profile)?$/);
   const playerId = playerMatch ? Number(playerMatch[1]) : null;
 
   if (playerId && playerId >= 1 && playerId <= gameSettings.maxPlayers) {
     return {
       role: "player",
-      playerId
+      playerId,
+      page: playerMatch[2] ? "profile" : "home"
     };
   }
 
@@ -175,8 +194,12 @@ function getViewContext() {
 
 function configurePageChrome() {
   const isAdmin = viewContext.role === "admin";
+  const isPlayer = viewContext.role === "player";
+  const isPlayerProfile = isPlayer && viewContext.page === "profile";
   const isLogin = viewContext.role === "login" || viewContext.role.endsWith("-login");
 
+  gameHeader.classList.toggle("is-player-shell", isPlayer);
+  gameHeader.classList.toggle("is-player-profile", isPlayerProfile);
   pageEyebrow.textContent = isLogin ? "Secure entry" : isAdmin ? "Admin table" : "Player table";
   pageTitle.textContent = viewContext.role === "login"
     ? "Lucky 7 Login"
@@ -184,23 +207,34 @@ function configurePageChrome() {
     ? "Admin Login"
     : viewContext.role === "player-login"
       ? "Player Login"
-      : isAdmin ? "Lucky 7 Admin" : `Player ${viewContext.playerId}`;
+      : isAdmin ? "Lucky 7 Admin" : isPlayerProfile ? `Player ${viewContext.playerId} Profile` : `Player ${viewContext.playerId}`;
   pageIntro.textContent = isAdmin
     ? "Control the round, monitor all players, roll dice, and move the table forward."
-    : viewContext.role === "player"
+    : isPlayerProfile
+      ? "Review wallet activity, withdrawals, and recent transactions."
+      : isPlayer
       ? "Add money to your wallet, then type a bet amount on Below 7, Exact 7, or Above 7."
       : "Enter with your admin key or player seat before joining the live table.";
   playerPanelTitle.textContent = isAdmin
     ? "Monitor players and manage table flow"
     : "Add wallet funds, then type lane bets when betting opens";
   loginPanel.hidden = !isLogin;
-  roleNav.hidden = isLogin || viewContext.role === "player";
+  roleNav.hidden = isLogin || isPlayer;
   profileBar.hidden = isLogin;
-  profileName.textContent = isAdmin ? "Admin" : viewContext.role === "player" ? `Player ${viewContext.playerId}` : "Guest";
-  document.querySelector(".table-top").hidden = isLogin;
-  laneGrid.hidden = isLogin;
-  document.querySelector(".player-panel").hidden = isLogin;
-  document.querySelector(".history-panel").hidden = isLogin;
+  profileBadge.textContent = isPlayer ? `P${viewContext.playerId}` : isAdmin ? "A" : "P";
+  profileName.textContent = isAdmin ? "Admin" : isPlayer ? `Player ${viewContext.playerId}` : "Guest";
+  playerHomeLink.hidden = !isPlayer;
+  playerProfileLink.hidden = !isPlayer;
+  playerHomeLink.href = isPlayer ? `/player/${viewContext.playerId}` : "#";
+  playerProfileLink.href = isPlayer ? `/player/${viewContext.playerId}/profile` : "#";
+  playerHomeLink.classList.toggle("is-active", isPlayer && viewContext.page === "home");
+  playerProfileLink.classList.toggle("is-active", isPlayerProfile);
+  document.querySelector(".table-top").hidden = isLogin || isPlayerProfile;
+  laneGrid.hidden = isLogin || isPlayerProfile;
+  document.querySelector(".player-panel").hidden = isLogin || isPlayerProfile;
+  playerHomeStats.hidden = !isPlayer || isPlayerProfile;
+  playerProfilePanel.hidden = !isPlayerProfile;
+  document.querySelector(".history-panel").hidden = isLogin || isPlayerProfile;
   settingsPanel.hidden = !isAdmin;
   loginLabel.textContent = "Login";
   loginTitle.textContent = "Enter the table";
@@ -483,6 +517,8 @@ function render() {
   renderPlayers();
   renderBuyCards();
   renderHand();
+  renderPlayerDashboard();
+  renderPlayerProfile();
   renderHistory();
   updateControls();
   restoreFocusedDraftInput(focusedDraftInput);
@@ -742,6 +778,113 @@ function renderHistory() {
   });
 }
 
+function renderPlayerDashboard() {
+  if (viewContext.role !== "player" && viewContext.role !== "admin") {
+    return;
+  }
+
+  const player = getActivePlayer();
+  const stats = getPlayerStats(player);
+
+  homeOnTableTotal.textContent = formatRupees(stats.onTable);
+  homeActiveBetCount.textContent = stats.activeBetCount;
+  homeWonTotal.textContent = formatRupees(player.winnings);
+  homeWinCount.textContent = player.winnings > 0 ? 1 : 0;
+}
+
+function renderPlayerProfile() {
+  if (viewContext.role !== "player") {
+    return;
+  }
+
+  const player = getActivePlayer();
+  const stats = getPlayerStats(player);
+
+  profileBoughtTotal.textContent = formatRupees(player.purchasedTotal);
+  profileBetCount.textContent = stats.betCount;
+  profileOnTableTotal.textContent = formatRupees(stats.onTable);
+  profileActiveBetCount.textContent = stats.activeBetCount;
+  profileWonTotal.textContent = formatRupees(player.winnings);
+  profileWinCount.textContent = player.winnings > 0 ? 1 : 0;
+  profileWithdrawBalance.textContent = formatRupees(getPlayerTotalMoney(player));
+  transactionList.innerHTML = getPlayerTransactions(player, stats)
+    .map((entry) => `
+      <div class="transaction-row">
+        <span>${entry.type}</span>
+        <span><b class="status-pill ${entry.statusClass}">${entry.status}</b></span>
+        <span class="${entry.amountClass}">${entry.amount}</span>
+        <span>${entry.date}</span>
+        <span>${entry.reference}</span>
+      </div>
+    `)
+    .join("");
+}
+
+function getPlayerStats(player) {
+  const betEntries = lanes.flatMap((lane) => player.bets[lane.id] || []);
+  const onTable = getPlayerRoundBet(player);
+
+  return {
+    activeBetCount: betEntries.length,
+    betCount: betEntries.length,
+    onTable
+  };
+}
+
+function getPlayerTransactions(player, stats) {
+  const transactions = [];
+
+  if (player.purchasedTotal > 0) {
+    transactions.push({
+      type: "Added Funds",
+      status: "Success",
+      statusClass: "is-success",
+      amount: formatRupees(player.purchasedTotal),
+      amountClass: "is-credit",
+      date: "Current session",
+      reference: `TXN-P${player.id}-ADD`
+    });
+  }
+
+  if (stats.onTable > 0) {
+    transactions.push({
+      type: "Bet Placed",
+      status: "Active",
+      statusClass: "is-pending",
+      amount: `- ${formatRupees(stats.onTable)}`,
+      amountClass: "is-debit",
+      date: "Current round",
+      reference: `BET-R${state.round}-P${player.id}`
+    });
+  }
+
+  if (player.winnings > 0) {
+    transactions.push({
+      type: "Winnings",
+      status: "Success",
+      statusClass: "is-success",
+      amount: formatRupees(player.winnings),
+      amountClass: "is-credit",
+      date: "Current round",
+      reference: `WIN-R${state.round}-P${player.id}`
+    });
+  }
+
+  if (transactions.length === 0) {
+    transactions.push({
+      type: "No transactions",
+      status: "Ready",
+      statusClass: "is-pending",
+      amount: formatRupees(0),
+      amountClass: "",
+      date: "Current session",
+      reference: "-"
+    });
+  }
+
+  return transactions;
+}
+
 function updateControls() {
   if (viewContext.role !== "admin") {
     startBettingBtn.hidden = true;
@@ -917,8 +1060,8 @@ async function rollDice() {
   }
 
   const ticker = window.setInterval(() => {
-    dieOne.textContent = randomDie();
-    dieTwo.textContent = randomDie();
+    setDieFace(dieOne, randomDie());
+    setDieFace(dieTwo, randomDie());
   }, 80);
 
   window.setTimeout(() => {
@@ -927,6 +1070,7 @@ async function rollDice() {
     dicePair.classList.remove("is-rolling");
     applyGameSession(session);
     render();
+    animateDiceSettle();
     markWinningLane(state.winningLaneId);
   }, 900);
 }
@@ -1154,6 +1298,37 @@ function randomDie() {
   return Math.floor(Math.random() * 6) + 1;
 }
 
+function setDieFace(die, value) {
+  const face = Number(value);
+  const pipMap = {
+    1: ["pos-center"],
+    2: ["pos-top-left", "pos-bottom-right"],
+    3: ["pos-top-left", "pos-center", "pos-bottom-right"],
+    4: ["pos-top-left", "pos-top-right", "pos-bottom-left", "pos-bottom-right"],
+    5: ["pos-top-left", "pos-top-right", "pos-center", "pos-bottom-left", "pos-bottom-right"],
+    6: ["pos-top-left", "pos-middle-left", "pos-bottom-left", "pos-top-right", "pos-middle-right", "pos-bottom-right"]
+  };
+
+  die.dataset.value = Number.isInteger(face) && pipMap[face] ? String(face) : "";
+
+  if (!die.dataset.value) {
+    die.textContent = "?";
+    return;
+  }
+
+  die.innerHTML = pipMap[face]
+    .map((position) => `<span class="die-pip ${position}"></span>`)
+    .join("");
+}
+
+function animateDiceSettle() {
+  [dieOne, dieTwo].forEach((die) => {
+    die.classList.remove("is-settling");
+    die.offsetHeight;
+    die.classList.add("is-settling");
+  });
+}
+
 async function loadGameConfig() {
   try {
     const response = await fetch("/api/game/config");
@@ -1352,8 +1527,8 @@ function applyGameSession(session) {
     state.history = [];
   }
 
-  dieOne.textContent = session.ui?.dieOne || "?";
-  dieTwo.textContent = session.ui?.dieTwo || "?";
+  setDieFace(dieOne, session.ui?.dieOne || "?");
+  setDieFace(dieTwo, session.ui?.dieTwo || "?");
   roundResult.textContent = session.ui?.roundResult || "Staging: add wallet funds";
   roundDetail.textContent = session.ui?.roundDetail || "Players can add money to their wallet now. The owner starts the betting timer when the table is ready.";
   playerConsentInput.value = getPlayerConsentToken(state.activePlayerId);

@@ -11,15 +11,24 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="/style.css?v=26">
+  <link rel="stylesheet" href="/style.css?v=32">
 </head>
 <body>
   <main class="game-shell">
-    <header class="game-header">
+    <header class="game-header" id="gameHeader">
       <section class="title-block">
-        <p class="eyebrow" id="pageEyebrow">Dice wallet arena</p>
-        <h1 id="pageTitle">Lucky 7 Wallet</h1>
-        <p id="pageIntro">Up to 10 players add wallet funds, type bets on Below 7, Exact 7, or Above 7, then two dice decide the winning lane.</p>
+        <div class="brand-lockup" aria-hidden="true">
+          <div class="brand-mark">♠</div>
+          <div>
+            <strong>Lucky 7</strong>
+            <span>Lane Bets</span>
+          </div>
+        </div>
+        <div class="title-copy">
+          <p class="eyebrow" id="pageEyebrow">Dice wallet arena</p>
+          <h1 id="pageTitle">Lucky 7 Wallet</h1>
+          <p id="pageIntro">Up to 10 players add wallet funds, type bets on Below 7, Exact 7, or Above 7, then two dice decide the winning lane.</p>
+        </div>
       </section>
 
       <section class="scoreboard" aria-label="Scoreboard">
@@ -38,10 +47,14 @@
       </section>
 
       <section class="profile-bar" id="profileBar" hidden>
-        <div>
+        <div class="profile-menu-head">
+          <span class="profile-badge" id="profileBadge">P1</span>
           <span>Signed in</span>
           <strong id="profileName">Guest</strong>
+          <span class="profile-chevron">⌃</span>
         </div>
+        <a id="playerHomeLink" class="ghost-btn profile-link" href="/player/1">Home</a>
+        <a id="playerProfileLink" class="ghost-btn profile-link" href="/player/1/profile">Profile</a>
         <button id="logoutBtn" type="button" class="ghost-btn">Log out</button>
       </section>
     </header>
@@ -130,7 +143,101 @@
         </div>
         <div class="card-hand" id="cardHand" aria-label="Wallet betting status"></div>
       </div>
+      <div id="playerHomeStats" class="wallet-stat-layout" aria-label="Player wallet summary">
+        <article class="wallet-stat-card stat-table">
+          <span class="wallet-stat-icon">T</span>
+          <div>
+            <p>On table</p>
+            <strong id="homeOnTableTotal">Rs 0</strong>
+            <small>Active bets <b id="homeActiveBetCount">0</b></small>
+          </div>
+        </article>
+        <article class="wallet-stat-card stat-won">
+          <span class="wallet-stat-icon">W</span>
+          <div>
+            <p>Won</p>
+            <strong id="homeWonTotal">Rs 0</strong>
+            <small>Total winnings <b id="homeWinCount">0</b></small>
+          </div>
+        </article>
+      </div>
       <div id="playerList" class="player-list" aria-label="Player seats"></div>
+    </section>
+
+    <section class="player-profile-panel" id="playerProfilePanel" hidden>
+      <div class="wallet-stat-layout profile-stat-layout">
+        <article class="wallet-stat-card stat-bought">
+          <span class="wallet-stat-icon">B</span>
+          <div>
+            <p>Bought</p>
+            <strong id="profileBoughtTotal">Rs 0</strong>
+            <small>No. of bets placed <b id="profileBetCount">0</b></small>
+          </div>
+        </article>
+        <article class="wallet-stat-card stat-table">
+          <span class="wallet-stat-icon">T</span>
+          <div>
+            <p>On table</p>
+            <strong id="profileOnTableTotal">Rs 0</strong>
+            <small>Active bets <b id="profileActiveBetCount">0</b></small>
+          </div>
+        </article>
+        <article class="wallet-stat-card stat-won">
+          <span class="wallet-stat-icon">W</span>
+          <div>
+            <p>Won</p>
+            <strong id="profileWonTotal">Rs 0</strong>
+            <small>Total winnings <b id="profileWinCount">0</b></small>
+          </div>
+        </article>
+        <article class="wallet-withdraw-card profile-withdraw-card">
+          <p class="status-label">Withdraw funds</p>
+          <div class="withdraw-balance-row">
+            <span>Available Balance</span>
+            <strong id="profileWithdrawBalance">Rs 0</strong>
+          </div>
+          <label>
+            <span>Enter Amount (Min Rs 100)</span>
+            <input type="text" inputmode="numeric" placeholder="100 - 1500">
+          </label>
+          <label>
+            <span>Withdrawal Method</span>
+            <select>
+              <option>Select method</option>
+              <option>UPI</option>
+              <option>Bank transfer</option>
+            </select>
+          </label>
+          <button type="button" class="primary-btn">Request withdrawal</button>
+          <small>Withdrawals are processed within 24 hours</small>
+        </article>
+      </div>
+      <div class="transaction-panel">
+        <div class="transaction-panel-top">
+          <h2>Recent transactions</h2>
+          <button type="button" class="ghost-btn">View all</button>
+        </div>
+        <div class="transaction-table">
+          <div class="transaction-row transaction-head">
+            <span>Type</span>
+            <span>Status</span>
+            <span>Amount</span>
+            <span>Date & time</span>
+            <span>Reference</span>
+          </div>
+          <div id="transactionList"></div>
+        </div>
+      </div>
+      <div class="profile-support-strip">
+        <div>
+          <strong>Your funds are 100% secure</strong>
+          <span>All transactions are encrypted and protected.</span>
+        </div>
+        <div>
+          <span>Need help?</span>
+          <button type="button" class="secondary-btn">Contact support</button>
+        </div>
+      </div>
     </section>
 
     <section class="history-panel">
@@ -184,6 +291,6 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/app.js?v=27"></script>
+  <script src="/app.js?v=32"></script>
 </body>
 </html>

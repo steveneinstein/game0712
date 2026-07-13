@@ -1997,7 +1997,80 @@ button:disabled {
 
 .profile-stat-layout {
   max-width: none;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(280px, 1.2fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(260px, 1.2fr);
+}
+
+.wallet-add-card {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid rgba(93, 137, 210, 0.2);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(19, 168, 91, 0.1), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.028));
+}
+
+.wallet-add-card p {
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.profile-add-card {
+  grid-column: 4;
+}
+
+.add-balance-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+}
+
+.add-balance-row strong {
+  color: var(--gold);
+}
+
+.wallet-add-card label {
+  display: grid;
+  gap: 7px;
+}
+
+.wallet-add-card label span {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.wallet-add-card input {
+  min-height: 42px;
+  width: 100%;
+  border: 1px solid rgba(255, 211, 106, 0.24);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.24);
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.wallet-add-card input:focus {
+  border-color: var(--gold);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 211, 106, 0.14);
+}
+
+.wallet-add-card .primary-btn {
+  width: 100%;
+  min-height: 44px;
+}
+
+.wallet-add-card small {
+  color: var(--muted);
+  font-size: 0.72rem;
 }
 
 .player-panel:has(#playerHomeStats:not([hidden])) {

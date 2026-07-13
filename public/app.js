@@ -79,6 +79,10 @@ const loginForm = document.querySelector("#loginForm");
 const loginUsernameInput = document.querySelector("#loginUsernameInput");
 const loginPasswordInput = document.querySelector("#loginPasswordInput");
 const profileBar = document.querySelector("#profileBar");
+const profileAddMoneyInput = document.querySelector("#profileAddMoneyInput");
+const profileAddMoneyBtn = document.querySelector("#profileAddMoneyBtn");
+const profileAddWalletBalance = document.querySelector("#profileAddWalletBalance");
+const profileAddMoneyInfo = document.querySelector("#profileAddMoneyInfo");
 const profileBadge = document.querySelector("#profileBadge");
 const profileName = document.querySelector("#profileName");
 const playerHomeLink = document.querySelector("#playerHomeLink");
@@ -146,6 +150,7 @@ startBettingBtn.addEventListener("click", startBetting);
 rollBtn.addEventListener("click", rollDice);
 nextRoundBtn.addEventListener("click", startNextRound);
 resetBtn.addEventListener("click", resetGame);
+profileAddMoneyBtn.addEventListener("click", handleProfileAddMoney);
 adminKeyInput.addEventListener("input", saveAdminKey);
 playerConsentInput.addEventListener("input", savePlayerConsentToken);
 loginForm.addEventListener("submit", handleLogin);
@@ -831,6 +836,14 @@ function renderPlayerProfile() {
   profileWonTotal.textContent = formatRupees(player.winnings);
   profileWinCount.textContent = player.winnings > 0 ? 1 : 0;
   profileWithdrawBalance.textContent = formatRupees(getPlayerTotalMoney(player));
+  profileAddWalletBalance.textContent = formatRupees(player.walletBalance);
+  const maxAdd = getMaxBuyAmount(player);
+  profileAddMoneyInput.placeholder = maxAdd > 0 ? `Max ${formatRupees(maxAdd)}` : "Max 0";
+  profileAddMoneyInput.disabled = state.phase !== "staging" || maxAdd <= 0;
+  profileAddMoneyBtn.disabled = state.phase !== "staging" || maxAdd <= 0;
+  profileAddMoneyInfo.textContent = maxAdd > 0
+    ? `Add up to ${formatRupees(maxAdd)} more to your wallet`
+    : "Wallet purchase limit reached";
   transactionList.innerHTML = getPlayerTransactions(player, stats)
     .map((entry) => `
       <div class="transaction-row">
@@ -942,6 +955,29 @@ async function buyCard(value) {
     delete inputDrafts.walletAdds[getWalletDraftKey(getActivePlayer().id)];
     render();
   }
+}
+
+async function handleProfileAddMoney() {
+  const value = Number(profileAddMoneyInput.value);
+  const player = getActivePlayer();
+  const maxAmount = getMaxBuyAmount(player);
+
+  if (!Number.isInteger(value) || value <= 0) {
+    profileAddMoneyInfo.textContent = "Enter a whole rupee amount.";
+    return;
+  }
+  if (value > maxAmount) {
+    profileAddMoneyInfo.textContent = `Max add: ${formatRupees(maxAmount)}.`;
+    return;
+  }
+  if (state.phase !== "staging") {
+    profileAddMoneyInfo.textContent = "Wallet funds can only be added during staging.";
+    return;
+  }
+
+  await buyCard(value);
+  profileAddMoneyInput.value = "";
+  profileAddMoneyInfo.textContent = `${formatRupees(value)} added to wallet.`;
 }
 
 async function addWalletFunds(value) {

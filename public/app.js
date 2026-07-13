@@ -153,6 +153,17 @@ playerLoginLink.addEventListener("click", confirmPlayerLoginNavigation);
 logoutBtn.addEventListener("click", logout);
 settingsForm.addEventListener("submit", handleSettingsSubmit);
 
+profileTrigger.addEventListener("click", (event) => {
+  event.stopPropagation();
+  profileBar.classList.toggle("is-expanded");
+});
+
+document.addEventListener("click", (event) => {
+  if (!profileBar.contains(event.target)) {
+    profileBar.classList.remove("is-expanded");
+  }
+});
+
 function getViewContext() {
   if (window.location.pathname === "/" || window.location.pathname === "/login") {
     return {
@@ -186,6 +197,14 @@ function getViewContext() {
     };
   }
 
+  if (window.location.pathname === "/settings") {
+    return {
+      role: "admin",
+      page: "settings",
+      playerId: null
+    };
+  }
+
   return {
     role: "admin",
     playerId: null
@@ -196,6 +215,7 @@ function configurePageChrome() {
   const isAdmin = viewContext.role === "admin";
   const isPlayer = viewContext.role === "player";
   const isPlayerProfile = isPlayer && viewContext.page === "profile";
+  const isSettings = isAdmin && viewContext.page === "settings";
   const isLogin = viewContext.role === "login" || viewContext.role.endsWith("-login");
 
   gameHeader.classList.toggle("is-player-shell", isPlayer);
@@ -208,13 +228,15 @@ function configurePageChrome() {
     : viewContext.role === "player-login"
       ? "Player Login"
       : isAdmin ? "Lucky 7 Admin" : isPlayerProfile ? `Player ${viewContext.playerId} Profile` : `Player ${viewContext.playerId}`;
-  pageIntro.textContent = isAdmin
-    ? "Control the round, monitor all players, roll dice, and move the table forward."
-    : isPlayerProfile
-      ? "Review wallet activity, withdrawals, and recent transactions."
-      : isPlayer
-      ? "Add money to your wallet, then type a bet amount on Below 7, Exact 7, or Above 7."
-      : "Enter with your admin key or player seat before joining the live table.";
+  pageIntro.textContent = isSettings
+    ? "Configure table settings, payout multipliers, and game rules."
+    : isAdmin
+      ? "Control the round, monitor all players, roll dice, and move the table forward."
+      : isPlayerProfile
+        ? "Review wallet activity, withdrawals, and recent transactions."
+        : isPlayer
+        ? "Add money to your wallet, then type a bet amount on Below 7, Exact 7, or Above 7."
+        : "Enter with your admin key or player seat before joining the live table.";
   playerPanelTitle.textContent = isAdmin
     ? "Monitor players and manage table flow"
     : "Add wallet funds, then type lane bets when betting opens";
@@ -223,28 +245,30 @@ function configurePageChrome() {
   profileBar.hidden = isLogin;
   profileBadge.textContent = isPlayer ? `P${viewContext.playerId}` : isAdmin ? "A" : "P";
   profileName.textContent = isAdmin ? "Admin" : isPlayer ? `Player ${viewContext.playerId}` : "Guest";
-  playerHomeLink.hidden = !isPlayer;
+  playerHomeLink.hidden = isLogin;
   playerProfileLink.hidden = !isPlayer;
-  playerHomeLink.href = isPlayer ? `/player/${viewContext.playerId}` : "#";
+  settingsLink.hidden = !isAdmin;
+  playerHomeLink.href = isAdmin ? "/admin" : isPlayer ? `/player/${viewContext.playerId}` : "#";
   playerProfileLink.href = isPlayer ? `/player/${viewContext.playerId}/profile` : "#";
-  playerHomeLink.classList.toggle("is-active", isPlayer && viewContext.page === "home");
+  playerHomeLink.classList.toggle("is-active", isAdmin ? !isSettings : isPlayer && viewContext.page === "home");
   playerProfileLink.classList.toggle("is-active", isPlayerProfile);
-  document.querySelector(".table-top").hidden = isLogin || isPlayerProfile;
-  laneGrid.hidden = isLogin || isPlayerProfile;
-  document.querySelector(".player-panel").hidden = isLogin || isPlayerProfile;
+  const isGameContentHidden = isLogin || isPlayerProfile || isSettings;
+  document.querySelector(".table-top").hidden = isGameContentHidden;
+  laneGrid.hidden = isGameContentHidden;
+  document.querySelector(".player-panel").hidden = isGameContentHidden;
   playerHomeStats.hidden = !isPlayer || isPlayerProfile;
   playerProfilePanel.hidden = !isPlayerProfile;
-  document.querySelector(".history-panel").hidden = isLogin || isPlayerProfile;
-  settingsPanel.hidden = !isAdmin;
+  document.querySelector(".history-panel").hidden = isGameContentHidden;
+  settingsPanel.hidden = !isSettings;
   loginLabel.textContent = "Login";
   loginTitle.textContent = "Enter the table";
   loginDetail.textContent = "Use admin credentials or a player username such as player1.";
-  controlsPanel.classList.remove("is-admin-only");
+  controlsPanel?.classList.remove("is-admin-only");
   adminKeyField.hidden = !isAdmin;
   adminKeyInput.value = getAdminKey();
   playerConsentField.hidden = !isAdmin;
   playerConsentInput.value = getPlayerConsentToken(state.activePlayerId);
-  adminLink.classList.toggle("is-active", isAdmin);
+  adminLink.classList.toggle("is-active", isAdmin && !isSettings);
   playerLoginLink.classList.toggle("is-active", viewContext.role === "player-login");
   renderPlayerLinks();
   renderSettingsForm();

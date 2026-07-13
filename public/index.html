@@ -11,7 +11,10 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="/style.css?v=32">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Poppins:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css?v=33">
 </head>
 <body>
   <main class="game-shell">
@@ -44,18 +47,31 @@
           <span>Round</span>
           <strong id="roundNumber">1</strong>
         </article>
-      </section>
-
-      <section class="profile-bar" id="profileBar" hidden>
-        <div class="profile-menu-head">
-          <span class="profile-badge" id="profileBadge">P1</span>
-          <span>Signed in</span>
-          <strong id="profileName">Guest</strong>
-          <span class="profile-chevron">⌃</span>
+        <div class="profile-dropdown" id="profileBar" hidden>
+          <button class="profile-trigger" id="profileTrigger" type="button">
+            <span class="profile-badge" id="profileBadge">P1</span>
+            <span class="profile-name" id="profileName">Player 1</span>
+            <span class="profile-chevron" id="profileChevron">▼</span>
+          </button>
+          <div class="profile-menu" id="profileMenu">
+            <a id="playerHomeLink" class="profile-menu-item" href="/player/1">
+              <span class="menu-icon">🏠</span>
+              <span>Home</span>
+            </a>
+            <a id="playerProfileLink" class="profile-menu-item" href="/player/1/profile">
+              <span class="menu-icon">👤</span>
+              <span>Profile</span>
+            </a>
+            <a id="settingsLink" class="profile-menu-item" href="/settings">
+              <span class="menu-icon">⚙</span>
+              <span>Settings</span>
+            </a>
+            <button id="logoutBtn" type="button" class="profile-menu-item">
+              <span class="menu-icon">🚪</span>
+              <span>Logout</span>
+            </button>
+          </div>
         </div>
-        <a id="playerHomeLink" class="ghost-btn profile-link" href="/player/1">Home</a>
-        <a id="playerProfileLink" class="ghost-btn profile-link" href="/player/1/profile">Profile</a>
-        <button id="logoutBtn" type="button" class="ghost-btn">Log out</button>
       </section>
     </header>
 
@@ -85,35 +101,87 @@
     </section>
 
     <section class="table-top">
-      <div class="dice-stage" aria-live="polite">
-        <div class="dice-pair" id="dicePair">
-          <div class="die" id="dieOne" aria-label="Die one">?</div>
-          <div class="die" id="dieTwo" aria-label="Die two">?</div>
+      <div class="staging-left">
+        <div class="result-badge">
+          <span class="badge-icon">🏆</span>
+          <span class="badge-label">result</span>
         </div>
-        <div>
-          <p class="status-label">Result</p>
-          <h2 id="roundResult">Staging: add wallet funds</h2>
-          <p id="roundDetail">Players can add money to their wallet now. The owner starts the betting timer when the table is ready.</p>
+
+        <h2 class="staging-heading">
+          Staging:<br>
+          <span class="gold-gradient">Add Wallet Funds</span>
+        </h2>
+
+        <div class="gold-divider"></div>
+
+        <div class="card-podium">
+          <div class="dice-pair" id="dicePair">
+            <div class="die" id="dieOne" aria-label="Die one">?</div>
+            <div class="die" id="dieTwo" aria-label="Die two">?</div>
+          </div>
+          <div class="podium-glow"></div>
+          <div class="podium-base"></div>
+        </div>
+
+        <div class="staging-info">
+          <p>Each player can add up to<br>Rs 1000 to their wallet.</p>
+          <p>The owner starts the betting timer<br>once every player is ready.</p>
         </div>
       </div>
 
-      <div class="controls">
-        <label class="admin-key-field" id="adminKeyField">
-          <span>Admin password</span>
-          <input id="adminKeyInput" type="password" autocomplete="current-password" placeholder="Enter admin password">
-        </label>
-        <label class="admin-key-field" id="playerConsentField" hidden>
-          <span>Consent token</span>
-          <input id="playerConsentInput" type="text" autocomplete="off" placeholder="Player token">
-        </label>
-        <div class="timer-card" aria-live="polite">
-          <span id="timerLabel">Stage</span>
-          <strong id="betTimer">Ready</strong>
+      <div class="staging-right">
+        <div class="staging-card">
+          <div class="input-row">
+            <label class="admin-key-field" id="adminKeyField">
+              <span class="field-label">Admin password</span>
+              <div class="input-wrapper">
+                <span class="input-icon">🔒</span>
+                <input id="adminKeyInput" type="password" autocomplete="current-password" placeholder="Enter admin password">
+              </div>
+            </label>
+            <label class="admin-key-field" id="playerConsentField" hidden>
+              <span class="field-label">Consent token</span>
+              <div class="input-wrapper">
+                <span class="input-icon">👤</span>
+                <input id="playerConsentInput" type="text" autocomplete="off" placeholder="Player token">
+              </div>
+            </label>
+          </div>
+
+          <div class="controls">
+            <div class="timer-card" aria-live="polite">
+              <span class="status-icon">🛡️</span>
+              <div class="timer-text">
+                <span id="timerLabel">Stage</span>
+                <strong id="betTimer">Ready</strong>
+              </div>
+              <span class="pill-badge success">Ready</span>
+            </div>
+          </div>
+
+          <div class="status-area">
+            <h2 id="roundResult" class="status-title">Staging: add wallet funds</h2>
+            <p id="roundDetail" class="status-desc">Players can add money to their wallet now. The owner starts the betting timer when the table is ready.</p>
+          </div>
+
+          <div class="button-row">
+            <button id="startBettingBtn" type="button" class="primary-btn btn-start">
+              <span class="btn-icon">▶</span>
+              Start betting
+            </button>
+            <button id="rollBtn" type="button" class="primary-btn btn-roll">
+              <span class="btn-icon">🎲</span>
+              Roll now
+            </button>
+          </div>
+
+          <button id="nextRoundBtn" type="button" class="secondary-btn" hidden>Next round</button>
+
+          <button id="resetBtn" type="button" class="ghost-btn btn-reset">
+            <span class="btn-icon">↻</span>
+            Reset game
+          </button>
         </div>
-        <button id="startBettingBtn" type="button" class="primary-btn">Start betting</button>
-        <button id="rollBtn" type="button" class="primary-btn">Roll now</button>
-        <button id="nextRoundBtn" type="button" class="secondary-btn" hidden>Next round</button>
-        <button id="resetBtn" type="button" class="ghost-btn">Reset game</button>
       </div>
     </section>
 

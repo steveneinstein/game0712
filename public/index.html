@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Poppins:wght@600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=35">
+  <link rel="stylesheet" href="/style.css?v=36">
 </head>
 <body>
   <main class="game-shell">
@@ -200,7 +200,10 @@
           <p class="status-label">Active player</p>
           <h2 id="activePlayerName">Player 1</h2>
           <p id="activePlayerWallet" class="limit-text">Wallet: Rs 0 | Buy left: Rs 1000</p>
-          <p id="consentTokenText" class="limit-text" hidden>Consent token: ----</p>
+          <p id="consentTokenText" class="limit-text" hidden>
+            <span id="consentTokenLabel">Consent token: ----</span>
+            <button id="copyConsentBtn" type="button" class="copy-btn" hidden aria-label="Copy consent token">📋</button>
+          </p>
         </div>
         <div id="buyCardPanel" class="buy-card-panel" aria-label="Add wallet funds"></div>
       </div>
@@ -372,6 +375,6 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/app.js?v=37"></script>
+  <script src="/app.js?v=39"></script>
 </body>
 </html>

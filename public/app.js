@@ -71,6 +71,8 @@ const adminKeyInput = document.querySelector("#adminKeyInput");
 const playerConsentField = document.querySelector("#playerConsentField");
 const playerConsentInput = document.querySelector("#playerConsentInput");
 const consentTokenText = document.querySelector("#consentTokenText");
+const consentTokenLabel = document.querySelector("#consentTokenLabel");
+const copyConsentBtn = document.querySelector("#copyConsentBtn");
 const loginPanel = document.querySelector("#loginPanel");
 const loginLabel = document.querySelector("#loginLabel");
 const loginTitle = document.querySelector("#loginTitle");
@@ -534,8 +536,21 @@ function render() {
   updateBetTimerDisplay();
   activePlayerName.textContent = activePlayer.name;
   activePlayerWallet.textContent = `Wallet: ${formatRupees(activePlayer.walletBalance)} | Add left: ${formatRupees(getPlayerBuyLimitLeft(activePlayer))}`;
+  const hasToken = Boolean(activePlayer.consentToken);
   consentTokenText.hidden = viewContext.role !== "player";
-  consentTokenText.textContent = `Consent token for admin help: ${activePlayer.consentToken || "----"}`;
+  consentTokenLabel.textContent = `Consent token: ${activePlayer.consentToken || "----"}`;
+  copyConsentBtn.hidden = !hasToken;
+
+  if (hasToken) {
+    copyConsentBtn.onclick = () => {
+      navigator.clipboard.writeText(activePlayer.consentToken).then(() => {
+        consentTokenLabel.textContent = "Copied!";
+        setTimeout(() => {
+          consentTokenLabel.textContent = `Consent token: ${activePlayer.consentToken}`;
+        }, 1500);
+      });
+    };
+  }
   playerConsentField.querySelector("span").textContent = `Consent token for ${activePlayer.name}`;
   playerLimitText.textContent = `Max wallet add per player: ${formatRupees(gameSettings.maxPurchasePerPlayer)}`;
 

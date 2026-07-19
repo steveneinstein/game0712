@@ -281,20 +281,17 @@ function configurePageChrome() {
 
 function renderPlayerLinks() {
   playerLinks.innerHTML = "";
+  playerLinks.hidden = viewContext.role === "admin";
 
-  Array.from({ length: gameSettings.maxPlayers }, (_, index) => index + 1).forEach((playerId) => {
-    const link = document.createElement("a");
-    link.href = viewContext.role === "admin" ? "#" : `/player/${playerId}`;
-    link.textContent = `P${playerId}`;
-    link.className = viewContext.playerId === playerId ? "is-active" : "";
-    if (viewContext.role === "admin") {
-      link.addEventListener("click", (event) => {
-        event.preventDefault();
-        selectPlayer(playerId);
-      });
-    }
-    playerLinks.appendChild(link);
-  });
+  if (viewContext.role !== "admin") {
+    Array.from({ length: gameSettings.maxPlayers }, (_, index) => index + 1).forEach((playerId) => {
+      const link = document.createElement("a");
+      link.href = `/player/${playerId}`;
+      link.textContent = `P${playerId}`;
+      link.className = viewContext.playerId === playerId ? "is-active" : "";
+      playerLinks.appendChild(link);
+    });
+  }
 }
 
 function renderSettingsForm() {
@@ -690,6 +687,10 @@ function renderLanes() {
 
 function renderPlayers() {
   playerList.innerHTML = "";
+
+  if (state.players.length !== gameSettings.maxPlayers) {
+    state.players = createPlayers();
+  }
 
   state.players.forEach((player) => {
     if (viewContext.role === "player" && player.id !== viewContext.playerId) {
@@ -1406,6 +1407,11 @@ async function loadGameConfig() {
 
     const config = await response.json();
     gameSettings = { ...gameSettings, ...config.settings };
+
+    if (state.players.length !== gameSettings.maxPlayers) {
+      state.players = createPlayers();
+    }
+
     lanes = config.lanes.map((lane) => ({
       ...lane,
       test: (sum) => sum >= lane.minSum && sum <= lane.maxSum
@@ -1586,7 +1592,7 @@ function applyGameSession(session) {
 
   syncBetTimerFromDeadline();
 
-  if (!Array.isArray(state.players) || state.players.length === 0) {
+  if (!Array.isArray(state.players) || state.players.length !== gameSettings.maxPlayers) {
     state.players = createPlayers();
   }
 

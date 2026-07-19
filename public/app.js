@@ -943,7 +943,7 @@ async function selectPlayer(playerId) {
 
 async function buyCard(value) {
   if (state.phase !== "staging") {
-    return;
+    return false;
   }
 
   const success = await runGameAction("/api/game/actions/buy-card", {
@@ -954,7 +954,9 @@ async function buyCard(value) {
   if (success) {
     delete inputDrafts.walletAdds[getWalletDraftKey(getActivePlayer().id)];
     render();
+    return true;
   }
+  return false;
 }
 
 async function handleProfileAddMoney() {
@@ -975,9 +977,14 @@ async function handleProfileAddMoney() {
     return;
   }
 
-  await buyCard(value);
-  profileAddMoneyInput.value = "";
-  profileAddMoneyInfo.textContent = `${formatRupees(value)} added to wallet.`;
+  const ok = await buyCard(value);
+  if (ok) {
+    profileAddMoneyInput.value = "";
+    profileAddMoneyInfo.textContent = `${formatRupees(value)} added to wallet.`;
+  } else {
+    const msg = roundDetail.textContent || "Failed to add funds.";
+    profileAddMoneyInfo.textContent = msg;
+  }
 }
 
 async function addWalletFunds(value) {

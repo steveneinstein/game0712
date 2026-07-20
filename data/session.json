@@ -1,0 +1,175 @@
+{
+  "state": {
+    "round": 1,
+    "activePlayerId": 1,
+    "selectedCardId": null,
+    "selectedLane": null,
+    "winningLaneId": null,
+    "phase": "staging",
+    "rolling": false,
+    "roundResolved": false,
+    "bettingOpen": false,
+    "betSecondsLeft": 15,
+    "betEndsAt": null,
+    "players": [
+      {
+        "id": 1,
+        "name": "Player 1",
+        "consentToken": "GLXW",
+        "authToken": null,
+        "winnings": 0,
+        "purchasedTotal": 0,
+        "walletBalance": 0,
+        "hand": [],
+        "bets": {
+          "below": [],
+          "exact": [],
+          "above": []
+        }
+      },
+      {
+        "id": 2,
+        "name": "Player 2",
+        "consentToken": "AUKY",
+        "authToken": null,
+        "winnings": 0,
+        "purchasedTotal": 0,
+        "walletBalance": 0,
+        "hand": [],
+        "bets": {
+          "below": [],
+          "exact": [],
+          "above": []
+        }
+      },
+      {
+        "id": 3,
+        "name": "Player 3",
+        "consentToken": "LRW0",
+        "authToken": null,
+        "winnings": 0,
+        "purchasedTotal": 0,
+        "walletBalance": 0,
+        "hand": [],
+        "bets": {
+          "below": [],
+          "exact": [],
+          "above": []
+        }
+      },
+      {
+        "id": 4,
+        "name": "Player 4",
+        "consentToken": "SNWH",
+        "authToken": null,
+        "winnings": 0,
+        "purchasedTotal": 0,
+        "walletBalance": 0,
+        "hand": [],
+        "bets": {
+          "below": [],
+          "exact": [],
+          "above": []
+        }
+      },
+      {
+        "id": 5,
+        "name": "Player 5",
+        "consentToken": "5U8D",
+        "authToken": null,
+        "winnings": 0,
+        "purchasedTotal": 0,
+        "walletBalance": 0,
+        "hand": [],
+        "bets": {
+          "below": [],
+          "exact": [],
+          "above": []
+        }
+      },
+      {
+        "id": 6,
+        "name": "Player 6",
+        "consentToken": "U7F6",
+        "authToken": null,
+        "winnings": 0,
+        "purchasedTotal": 0,
+        "walletBalance": 0,
+        "hand": [],
+        "bets": {
+          "below": [],
+          "exact": [],
+          "above": []
+        }
+      },
+      {
+        "id": 7,
+        "name": "Player 7",
+        "consentToken": "6FSX",
+        "authToken": null,
+        "winnings": 0,
+        "purchasedTotal": 0,
+        "walletBalance": 0,
+        "hand": [],
+        "bets": {
+          "below": [],
+          "exact": [],
+          "above": []
+        }
+      },
+      {
+        "id": 8,
+        "name": "Player 8",
+        "consentToken": "SU0M",
+        "authToken": null,
+        "winnings": 0,
+        "purchasedTotal": 0,
+        "walletBalance": 0,
+        "hand": [],
+        "bets": {
+          "below": [],
+          "exact": [],
+          "above": []
+        }
+      },
+      {
+        "id": 9,
+        "name": "Player 9",
+        "consentToken": "M3TL",
+        "authToken": null,
+        "winnings": 0,
+        "purchasedTotal": 0,
+        "walletBalance": 0,
+        "hand": [],
+        "bets": {
+          "below": [],
+          "exact": [],
+          "above": []
+        }
+      },
+      {
+        "id": 10,
+        "name": "Player 10",
+        "consentToken": "JRLR",
+        "authToken": null,
+        "winnings": 0,
+        "purchasedTotal": 0,
+        "walletBalance": 0,
+        "hand": [],
+        "bets": {
+          "below": [],
+          "exact": [],
+          "above": []
+        }
+      }
+    ],
+    "history": []
+  },
+  "ui": {
+    "dieOne": "?",
+    "dieTwo": "?",
+    "roundResult": "Staging: add wallet funds",
+    "roundDetail": "Players can add money to their wallet now. The owner starts the betting timer when the table is ready."
+  },
+  "updatedAt": "2026-07-19T11:21:53.661Z"
+}
